@@ -1,0 +1,24 @@
+# Runtime state files (not tracked)
+.salience-cache.json
+.rate-limiter-state.json
+.working/
+.graph-store.json
+.procedural-store.json
+
+# Node modules
+node_modules/
+
+# Build output
+dist/
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+
+# HNSW index files
+*.hnsw
+
+# Gordo memory index
+.gordo-memory/

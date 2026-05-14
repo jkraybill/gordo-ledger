@@ -1,0 +1,32 @@
+{
+  "name": "gordo-ledger",
+  "version": "0.1.0",
+  "description": "Ledger - T1 memory primitive for Project Gordo umbrella",
+  "main": "src/index.js",
+  "bin": {
+    "ledger": "./src/cli.js"
+  },
+  "scripts": {
+    "test": "node --test src/**/*.test.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "memory",
+    "ledger",
+    "gordo",
+    "ai-collaboration",
+    "vector-search"
+  ],
+  "author": "Gordo <gordo@dashcord.com>",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "hnswlib-wasm": "^0.8.2",
+    "openai": "^4.58.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
