@@ -1,10 +1,12 @@
-# gordo-memory: Semantic Memory Search MCP Server
+# gordo-ledger MCP: Semantic Memory Search Server
 
-**Five-Layer Memory** for Gordo Framework - semantic search across sessions, issues, commits, docs, and code.
+**Five-Layer Memory** for Project Gordo umbrella - semantic search across sessions, issues, commits, docs, and code.
+
+*Migrated from gordo-framework/mcp-servers/gordo-memory S240. CLI commands and index directory (.gordo-memory/) unchanged for backwards compatibility.*
 
 ## Five-Layer Memory Architecture (Recommended)
 
-gordo-memory indexes **five layers** of project context, each with hierarchical boosting:
+The MCP server indexes **five layers** of project context, each with hierarchical boosting:
 
 | Layer | Source | Boost | Description |
 |-------|--------|-------|-------------|
@@ -70,13 +72,13 @@ export OPENAI_API_KEY="sk-..."  # If using OpenAI instead
 
 ## Installation
 
-**From gordo-framework repository** (v0.7.0+):
+**From gordo-ledger repository:**
 
 \`\`\`bash
-# Clone gordo-framework
+# Clone gordo-ledger
 cd ~
-git clone https://github.com/jkraybill/gordo-framework.git
-cd gordo-framework/mcp-servers/gordo-memory
+git clone https://github.com/jkraybill/gordo-ledger.git
+cd gordo-ledger/mcp
 
 # Install dependencies
 npm install
@@ -85,7 +87,7 @@ npm install
 npm run build
 
 # Verify installation
-npm test  # Should show 179/179 tests passing
+npm test
 
 # Make CLI globally available (optional)
 npm link
@@ -93,12 +95,12 @@ npm link
 
 **Post-install verification:**
 \`\`\`bash
-# Check gordo-memory CLI works
-gordo-memory --help
+# Check CLI works
+node ~/gordo-ledger/mcp/dist/cli.js --help
 
 # Initialize memory index in your project
 cd ~/your-gordo-project
-gordo-memory init
+node ~/gordo-ledger/mcp/dist/cli.js init
 
 # Expected output:
 # ✓ Index initialized at .gordo-memory/
@@ -110,33 +112,10 @@ gordo-memory init
 
 **Prerequisites:**
 - Node.js 18+ installed (`node --version`)
-- gordo-memory built (`npm run build` in mcp-servers/gordo-memory/)
+- gordo-ledger MCP built (`npm run build` in gordo-ledger/mcp/)
 - Ollama with mxbai-embed-large (or OpenAI API key)
 
-#### Quick Setup (Recommended)
-
-**Use the automated setup script:**
-
-```bash
-# From your project directory:
-/path/to/gordo-framework/scripts/setup-gordo-memory.sh
-
-# Or if gordo-framework is in your home directory:
-~/gordo-framework/scripts/setup-gordo-memory.sh
-```
-
-**What the script does:**
-1. Detects your node path (handles NVM correctly)
-2. Finds gordo-memory installation
-3. Generates `.mcp.json` with correct absolute paths
-4. Updates `.gitignore`
-5. Copies sync scripts to your project
-
-**⚠️ IMPORTANT: After running the script, restart Claude Code to load MCP tools.**
-
----
-
-#### Manual Setup (Alternative)
+#### Manual Setup
 
 **Step 1: Create Project MCP Configuration**
 
@@ -146,11 +125,11 @@ Create **`.mcp.json`** in your **project root directory**.
 ```json
 {
   "mcpServers": {
-    "gordo-memory": {
+    "gordo-ledger": {
       "command": "/usr/bin/node",
-      "args": ["/home/alice/gordo-framework/mcp-servers/gordo-memory/dist/index.js"],
+      "args": ["/home/alice/gordo-ledger/mcp/dist/index.js"],
       "env": {
-        "NODE_PATH": "/home/alice/gordo-framework/mcp-servers/gordo-memory/node_modules"
+        "NODE_PATH": "/home/alice/gordo-ledger/mcp/node_modules"
       }
     }
   }
@@ -161,11 +140,11 @@ Create **`.mcp.json`** in your **project root directory**.
 ```json
 {
   "mcpServers": {
-    "gordo-memory": {
+    "gordo-ledger": {
       "command": "/home/bob/.nvm/versions/node/v20.19.0/bin/node",
-      "args": ["/home/bob/gordo-framework/mcp-servers/gordo-memory/dist/index.js"],
+      "args": ["/home/bob/gordo-ledger/mcp/dist/index.js"],
       "env": {
-        "NODE_PATH": "/home/bob/gordo-framework/mcp-servers/gordo-memory/node_modules"
+        "NODE_PATH": "/home/bob/gordo-ledger/mcp/node_modules"
       }
     }
   }
@@ -175,7 +154,7 @@ Create **`.mcp.json`** in your **project root directory**.
 **⚠️ IMPORTANT:**
 - Config file location: **`.mcp.json`** in **project root** (NOT `~/.claude/mcp-config.json`)
 - Use **absolute paths** (expand `~` to full home directory path)
-- Find your paths with: `which node` and `realpath ~/gordo-framework`
+- Find your paths with: `which node` and `realpath ~/gordo-ledger`
 
 **For NVM users:** Find your node path with `which node`. It will show something like `/home/username/.nvm/versions/node/v20.19.0/bin/node` - use that exact path
 
