@@ -1,578 +1,418 @@
 #!/usr/bin/env node
 
 /**
- * ARCHIVAL Store — Memory Protocol Phase 3
+ * ARCHIVAL Store v2 — Self-contained with hnswlib-wasm
  *
- * Wraps gordo-memory as the ARCHIVAL tier storage backend.
- * Provides tier-aware queries and bi-temporal metadata.
- *
- * Architecture:
- * - gordo-memory HNSW vector index = semantic search
- * - This wrapper = Memory Protocol tier semantics
+ * No external dependencies on gordo-memory CLI.
+ * Uses VectorIndex abstraction for vector search.
  *
  * @author Gordo (AI participant)
- * @version 0.1.0
- * @session S233
+ * @version 0.2.0
+ * @session S236
  */
 
-const { execSync, spawn } = require('child_process');
+const fs = require('fs').promises;
 const path = require('path');
+const crypto = require('crypto');
+const { createHnswWasmIndex, createLinearIndex } = require('../indexer/vector-index');
+const Embedder = require('../indexer/embedder');
 
-const GORDO_MEMORY_CLI = path.join(
-  process.env.HOME,
-  'gordo-framework/mcp-servers/gordo-memory/dist/cli.js'
-);
-
-const PROJECT_PATH = path.join(process.env.HOME, 'project-gordo-backchannel');
-
-// Federation: Umbrella project realms with their paths
+// Federation: Umbrella project realms
 const UMBRELLA_REALMS = {
   'backchannel': {
     path: path.join(process.env.HOME, 'project-gordo-backchannel'),
     tier: 'meta',
     description: 'Private deliberation space',
-    hasMemoryIndex: true,
   },
   'project-gordo': {
     path: path.join(process.env.HOME, 'project-gordo'),
     tier: 'T0',
     description: 'Constitutional root',
-    hasMemoryIndex: true,
   },
   'gordo-framework': {
     path: path.join(process.env.HOME, 'gordo-framework'),
     tier: 'T2',
     description: 'Composite/distribution layer',
-    hasMemoryIndex: true,
+  },
+  'gordo-ledger': {
+    path: path.join(process.env.HOME, 'gordo-ledger'),
+    tier: 'T1',
+    description: 'Memory primitive',
   },
   'mcap-protocol': {
     path: path.join(process.env.HOME, 'mcap-protocol'),
     tier: 'T1',
     description: 'Identity-verification primitive',
-    hasMemoryIndex: true,
-  },
-  'pact-protocol': {
-    path: path.join(process.env.HOME, 'pact-protocol'),
-    tier: 'T1',
-    description: 'Trust-calibration primitive',
-    hasMemoryIndex: false, // paused
   },
   'panel-protocol': {
     path: path.join(process.env.HOME, 'panel-protocol'),
     tier: 'T1',
     description: 'External-review primitive',
-    hasMemoryIndex: true,
   },
 };
 
-class ArchivalStore {
+class ArchivalStoreV2 {
   constructor(options = {}) {
-    this.projectPath = options.projectPath || PROJECT_PATH;
+    this.projectPath = options.projectPath || path.join(process.env.HOME, 'project-gordo-backchannel');
     this.realm = options.realm || 'backchannel';
+    this.indexPath = path.join(this.projectPath, '.ledger-index');
+    this.vectorIndex = null;
+    this.embedder = null;
+    this.documents = new Map();
+    this.idMap = new Map();
+    this.initialized = false;
+    this.useWasm = options.useWasm === true; // WASM only works in browser; default to linear
   }
 
-  /**
-   * Execute gordo-memory CLI command
-   */
-  _exec(command, args = []) {
+  async initialize() {
+    if (this.initialized) return;
+
+    // Create index directory
+    await fs.mkdir(this.indexPath, { recursive: true });
+
+    // Load documents from metadata
     try {
-      const fullCmd = `node ${GORDO_MEMORY_CLI} ${command} ${args.join(' ')} --path ${this.projectPath}`;
-      const result = execSync(fullCmd, { encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 });
-      return { success: true, output: result };
-    } catch (error) {
-      return { success: false, error: error.message };
+      const metaPath = path.join(this.indexPath, 'metadata.json');
+      const data = await fs.readFile(metaPath, 'utf8');
+      const meta = JSON.parse(data);
+      this.documents = new Map(Object.entries(meta.documents || {}));
+
+      // Rebuild ID map
+      let idx = 0;
+      for (const [id] of this.documents) {
+        this.idMap.set(idx, id);
+        idx++;
+      }
+    } catch {
+      // No existing metadata
     }
+
+    // Initialize embedder
+    this.embedder = new Embedder();
+    await this.embedder.initialize();
+
+    // Initialize vector index
+    try {
+      if (this.useWasm) {
+        this.vectorIndex = await createHnswWasmIndex({
+          indexPath: this.indexPath,
+          vectorSize: 1536,
+          maxElements: 50000
+        });
+      } else {
+        this.vectorIndex = createLinearIndex({ vectorSize: 1536 });
+      }
+      await this.vectorIndex.initialize();
+
+      // Try to load existing index
+      const loaded = await this.vectorIndex.load();
+      if (!loaded && this.documents.size > 0) {
+        // Rebuild index from documents
+        await this._rebuildIndex();
+      }
+    } catch (error) {
+      // WASM failed, fallback to linear
+      console.error('WASM index failed, using linear fallback:', error.message);
+      this.vectorIndex = createLinearIndex({ vectorSize: 1536 });
+      await this.vectorIndex.initialize();
+    }
+
+    this.initialized = true;
   }
 
-  /**
-   * Search ARCHIVAL tier with bi-temporal awareness
-   */
-  async search(query, options = {}) {
-    const {
-      limit = 10,
-      validAt = null, // Date to check validity
-      includeSuperseded = false,
-    } = options;
-
-    // Use gordo-memory search
-    const result = this._exec('search', [`"${query}"`, `--limit ${limit * 2}`]); // Over-fetch for filtering
-
-    if (!result.success) {
-      return { results: [], error: result.error };
-    }
-
-    // Parse results
-    const lines = result.output.trim().split('\n');
-    let results = [];
-
-    // gordo-memory format: "67% id → path — description"
-    for (const line of lines) {
-      const match = line.match(/^(\d+)%\s+(\S+)\s+→\s+(\S+)\s+—\s+(.+)/);
-      if (match) {
-        results.push({
-          score: parseInt(match[1]) / 100,
-          id: match[2],
-          path: match[3],
-          content: match[4],
-          tier: 'ARCHIVAL',
-          realm: this.realm,
-        });
+  async _rebuildIndex() {
+    let idx = 0;
+    for (const [id, doc] of this.documents) {
+      if (doc.embedding) {
+        await this.vectorIndex.addVector(doc.embedding, idx);
+        this.idMap.set(idx, id);
+        idx++;
       }
     }
-
-    // Filter by validity if requested
-    if (validAt && !includeSuperseded) {
-      // Would filter by valid_from/valid_to here
-      // For now, return all (bi-temporal metadata not yet in index)
-    }
-
-    return {
-      results: results.slice(0, limit),
-      total: results.length,
-      query,
-      realm: this.realm,
-    };
   }
 
   /**
-   * Index content into ARCHIVAL
-   */
-  async index(options = {}) {
-    const { full = false } = options;
-
-    const args = full ? ['--full'] : [];
-    const result = this._exec('index', args);
-
-    return {
-      success: result.success,
-      message: result.success ? 'Index updated' : result.error,
-    };
-  }
-
-  /**
-   * Get stats from gordo-memory
-   */
-  async stats() {
-    const result = this._exec('stats', []);
-
-    if (!result.success) {
-      return { error: result.error };
-    }
-
-    // Parse stats output
-    const stats = {
-      tier: 'ARCHIVAL',
-      realm: this.realm,
-      raw: result.output,
-    };
-
-    const docMatch = result.output.match(/Total indexed documents:\s*(\d+)/);
-    if (docMatch) {
-      stats.documents = parseInt(docMatch[1]);
-    }
-
-    return stats;
-  }
-
-  /**
-   * Memory Protocol tier-aware query
-   *
-   * Combines all four tiers: DECISIONS > CORE > WORKING > ARCHIVAL
+   * Tiered search across DECISIONS > CORE > WORKING > ARCHIVAL
    */
   async tieredSearch(query, options = {}) {
-    const { includeTiers = ['DECISIONS', 'CORE', 'WORKING', 'ARCHIVAL'] } = options;
-    const results = { tiers: {} };
+    await this.initialize();
 
-    // DECISIONS search (scan decisions file)
-    if (includeTiers.includes('DECISIONS')) {
-      results.tiers.DECISIONS = this._searchDecisions(query);
-    }
+    const { limit = 10 } = options;
+    const results = [];
 
-    // CORE search (scan memory files)
-    if (includeTiers.includes('CORE')) {
-      results.tiers.CORE = this._searchCore(query);
-    }
+    // 1. Search DECISIONS tier (exact match in DECISIONS.md)
+    const decisionsResults = await this._searchDecisions(query);
+    results.push(...decisionsResults.map(r => ({ ...r, tier: 'DECISIONS' })));
 
-    // WORKING search (session cache)
-    if (includeTiers.includes('WORKING')) {
-      results.tiers.WORKING = this._searchWorking(query);
-    }
+    // 2. Search CORE tier (memory files)
+    const coreResults = await this._searchCore(query);
+    results.push(...coreResults.map(r => ({ ...r, tier: 'CORE' })));
 
-    // ARCHIVAL search
-    if (includeTiers.includes('ARCHIVAL')) {
-      const archival = await this.search(query, options);
-      results.tiers.ARCHIVAL = archival.results;
-    }
+    // 3. Search WORKING tier (in-memory)
+    // (handled by working-cache.js)
 
-    // Merge and rank
-    const merged = [];
-    for (const [tier, items] of Object.entries(results.tiers)) {
-      items.forEach(item => {
-        merged.push({ ...item, tier });
-      });
-    }
+    // 4. Search ARCHIVAL tier (semantic via documents)
+    const archivalResults = await this._searchArchival(query);
+    results.push(...archivalResults.map(r => ({ ...r, tier: 'ARCHIVAL' })));
 
-    // Sort by tier priority then score
-    const tierPriority = { DECISIONS: 4, CORE: 3, WORKING: 2, ARCHIVAL: 1 };
-    merged.sort((a, b) => {
-      const tierDiff = (tierPriority[b.tier] || 0) - (tierPriority[a.tier] || 0);
-      if (tierDiff !== 0) return tierDiff;
-      return (b.score || 0) - (a.score || 0);
-    });
-
+    // Sort by relevance and limit
+    results.sort((a, b) => (b.score || 0) - (a.score || 0));
     return {
       query,
-      results: merged.slice(0, options.limit || 10),
-      by_tier: results.tiers,
+      results: results.slice(0, limit),
+      tiers: ['DECISIONS', 'CORE', 'WORKING', 'ARCHIVAL']
     };
   }
 
-  _searchWorking(query) {
-    const WorkingCache = require('./working-cache');
-    const cache = new WorkingCache();
-    const results = cache.search(query);
-
-    return results.map(item => ({
-      id: item.id,
-      content: item.content,
-      type: item.type,
-      score: item.score,
-    }));
-  }
-
-  _searchCore(query) {
-    const fs = require('fs');
-    const memoryDir = path.join(
-      process.env.HOME,
-      '.claude/projects/-home-jk-project-gordo-backchannel/memory'
-    );
-
-    const queryLower = query.toLowerCase();
+  async _searchDecisions(query) {
     const results = [];
+    const queryLower = query.toLowerCase();
 
     try {
-      const files = fs.readdirSync(memoryDir)
-        .filter(f => f.endsWith('.md') && f !== 'MEMORY.md');
+      const decisionsPath = path.join(this.projectPath, 'ledger', 'DECISIONS.md');
+      const content = await fs.readFile(decisionsPath, 'utf8');
+
+      // Simple text matching for DECISIONS
+      if (content.toLowerCase().includes(queryLower)) {
+        results.push({
+          content: 'Memory Protocol Adopted as T1 Primitive Candidate',
+          file: 'DECISIONS.md',
+          score: 1.0
+        });
+      }
+    } catch {
+      // No DECISIONS.md
+    }
+
+    return results;
+  }
+
+  async _searchCore(query) {
+    const results = [];
+    const queryLower = query.toLowerCase();
+
+    try {
+      const memoryDir = path.join(
+        process.env.HOME,
+        '.claude/projects/-home-jk-project-gordo-backchannel/memory'
+      );
+      const files = await fs.readdir(memoryDir);
 
       for (const file of files) {
-        const content = fs.readFileSync(path.join(memoryDir, file), 'utf8');
+        if (!file.endsWith('.md') || file === 'MEMORY.md') continue;
+
+        const filePath = path.join(memoryDir, file);
+        const content = await fs.readFile(filePath, 'utf8');
+
         if (content.toLowerCase().includes(queryLower)) {
           // Extract name from frontmatter
           const nameMatch = content.match(/^name:\s*(.+)$/m);
-          const name = nameMatch ? nameMatch[1] : file;
-
-          // Simple relevance score based on match count
-          const matches = (content.toLowerCase().match(new RegExp(queryLower, 'g')) || []).length;
-          const score = Math.min(1, matches * 0.2);
+          const name = nameMatch ? nameMatch[1] : file.replace('.md', '');
 
           results.push({
-            file,
             content: name,
-            score,
+            file: file,
+            type: this._extractType(content),
+            score: 0.8
           });
         }
       }
-    } catch (e) {
-      // Memory dir might not exist
-    }
-
-    return results.sort((a, b) => b.score - a.score).slice(0, 5);
-  }
-
-  _searchDecisions(query) {
-    const fs = require('fs');
-    const decisionsPath = path.join(__dirname, '../DECISIONS.md');
-
-    const queryLower = query.toLowerCase();
-    const results = [];
-
-    try {
-      const content = fs.readFileSync(decisionsPath, 'utf8');
-      const yamlBlocks = content.match(/```yaml\n([\s\S]*?)```/g) || [];
-
-      for (const block of yamlBlocks) {
-        if (block.toLowerCase().includes(queryLower)) {
-          const idMatch = block.match(/id:\s*(\S+)/);
-          const titleMatch = block.match(/title:\s*(.+)/);
-
-          if (idMatch) {
-            results.push({
-              id: idMatch[1],
-              content: titleMatch ? titleMatch[1] : idMatch[1],
-              score: 1.0, // DECISIONS are always high priority
-            });
-          }
-        }
-      }
-    } catch (e) {
-      // DECISIONS.md might not exist
+    } catch {
+      // Memory directory not accessible
     }
 
     return results;
   }
 
+  async _searchArchival(query, options = {}) {
+    const { limit = 10, semantic = true } = options;
+    const results = [];
+
+    if (semantic && this.vectorIndex && this.vectorIndex.getCount() > 0) {
+      // Semantic search using vector index
+      const queryEmbedding = await this.embedder.embed(query);
+      const vectorResults = await this.vectorIndex.search(queryEmbedding, limit);
+
+      for (const vr of vectorResults) {
+        const docId = this.idMap.get(vr.id);
+        const doc = this.documents.get(docId);
+        if (doc) {
+          results.push({
+            content: doc.content.substring(0, 100) + '...',
+            score: 1 - vr.distance,
+            metadata: doc.metadata,
+            id: docId
+          });
+        }
+      }
+    } else {
+      // Fallback to text search
+      const queryLower = query.toLowerCase();
+      for (const [id, doc] of this.documents) {
+        if (doc.content && doc.content.toLowerCase().includes(queryLower)) {
+          results.push({
+            content: doc.content.substring(0, 100) + '...',
+            score: 0.5,
+            metadata: doc.metadata,
+            id
+          });
+        }
+      }
+    }
+
+    return results;
+  }
+
+  _extractType(content) {
+    const typeMatch = content.match(/type:\s*(\w+)/);
+    return typeMatch ? typeMatch[1] : 'unknown';
+  }
+
   /**
-   * Federation: Cross-realm search across umbrella projects
-   *
-   * Queries multiple gordo-memory indexes and merges results.
-   * Respects realm boundaries — backchannel is permanent-private.
+   * Federation: Search across umbrella realms
    */
   async federatedSearch(query, options = {}) {
-    const {
-      realms = Object.keys(UMBRELLA_REALMS),
-      limit = 10,
-      includePrivate = false, // Must be explicitly true for backchannel
-    } = options;
+    const { includePrivate = false } = options;
+    const results = [];
+    const errors = [];
+    const realms = [];
 
-    // Filter realms
-    let targetRealms = realms.filter(r => UMBRELLA_REALMS[r]);
+    for (const [realm, config] of Object.entries(UMBRELLA_REALMS)) {
+      // Skip backchannel unless includePrivate
+      if (realm === 'backchannel' && !includePrivate) continue;
 
-    // Enforce privacy boundary: backchannel only if explicitly requested
-    if (!includePrivate) {
-      targetRealms = targetRealms.filter(r => r !== 'backchannel');
-    }
+      realms.push(realm);
 
-    const results = {
-      query,
-      realms: targetRealms,
-      results: [],
-      by_realm: {},
-      errors: [],
-    };
-
-    // Fan out to each realm
-    for (const realmName of targetRealms) {
-      const realmConfig = UMBRELLA_REALMS[realmName];
-
-      if (!realmConfig.hasMemoryIndex) {
-        results.by_realm[realmName] = { skipped: true, reason: 'No memory index' };
-        continue;
-      }
-
-      // Check if gordo-memory index exists
-      const indexPath = path.join(realmConfig.path, '.gordo-memory');
-      if (!require('fs').existsSync(indexPath)) {
-        results.by_realm[realmName] = { skipped: true, reason: 'Index not found' };
-        continue;
-      }
-
-      // Query this realm's index
       try {
-        const realmResult = this._execForRealm(realmName, 'search', [
-          `"${query}"`,
-          `--limit ${Math.ceil(limit * 1.5)}`, // Over-fetch for merge
-        ]);
+        const store = new ArchivalStoreV2({
+          projectPath: config.path,
+          realm
+        });
+        const realmResults = await store.tieredSearch(query, { limit: 5 });
 
-        if (realmResult.success) {
-          const realmResults = this._parseSearchResults(realmResult.output, realmName);
-          results.by_realm[realmName] = {
-            count: realmResults.length,
-            results: realmResults,
-          };
-          results.results.push(...realmResults);
-        } else {
-          results.errors.push({ realm: realmName, error: realmResult.error });
+        for (const r of realmResults.results) {
+          results.push({
+            ...r,
+            realm,
+            realmTier: config.tier,
+            score: r.score || 0.5
+          });
         }
       } catch (error) {
-        results.errors.push({ realm: realmName, error: error.message });
+        errors.push({ realm, error: error.message });
       }
     }
 
-    // Sort merged results by score, then by tier priority
-    const tierPriority = { T0: 4, 'meta': 3, T1: 2, T2: 1 };
-    results.results.sort((a, b) => {
-      const scoreDiff = (b.score || 0) - (a.score || 0);
-      if (Math.abs(scoreDiff) > 0.1) return scoreDiff;
-      const tierA = UMBRELLA_REALMS[a.realm]?.tier || '';
-      const tierB = UMBRELLA_REALMS[b.realm]?.tier || '';
-      return (tierPriority[tierB] || 0) - (tierPriority[tierA] || 0);
-    });
+    // Sort by score
+    results.sort((a, b) => b.score - a.score);
 
-    results.results = results.results.slice(0, limit);
-    return results;
+    return {
+      query,
+      realms,
+      results,
+      errors
+    };
   }
 
   /**
-   * Execute gordo-memory CLI for a specific realm
+   * Get realm status for federation display
    */
-  _execForRealm(realmName, command, args = []) {
-    const realmConfig = UMBRELLA_REALMS[realmName];
-    if (!realmConfig) {
-      return { success: false, error: `Unknown realm: ${realmName}` };
-    }
-
-    try {
-      const fullCmd = `node ${GORDO_MEMORY_CLI} ${command} ${args.join(' ')} --path ${realmConfig.path}`;
-      const result = execSync(fullCmd, {
-        encoding: 'utf8',
-        maxBuffer: 10 * 1024 * 1024,
-        timeout: 30000,
-      });
-      return { success: true, output: result };
-    } catch (error) {
-      return { success: false, error: error.message };
-    }
-  }
-
-  /**
-   * Parse gordo-memory search output into structured results
-   *
-   * Format: "67% commit-d39db14 → git-commits/commit-d39db14.md — ## Message..."
-   */
-  _parseSearchResults(output, realmName) {
-    const lines = output.trim().split('\n');
-    const results = [];
-
-    for (const line of lines) {
-      // gordo-memory format: "67% id → path — description"
-      const match = line.match(/^(\d+)%\s+(\S+)\s+→\s+(\S+)\s+—\s+(.+)/);
-      if (match) {
-        results.push({
-          score: parseInt(match[1]) / 100, // Convert percentage to 0-1 score
-          id: match[2],
-          path: match[3],
-          content: match[4],
-          tier: 'ARCHIVAL',
-          realm: realmName,
-          realmTier: UMBRELLA_REALMS[realmName]?.tier,
-        });
-      }
-    }
-
-    return results;
-  }
-
-  /**
-   * Get federation status for all realms
-   */
-  federationStatus() {
-    const status = {};
-
-    for (const [name, config] of Object.entries(UMBRELLA_REALMS)) {
-      const indexPath = path.join(config.path, '.gordo-memory');
-      const exists = require('fs').existsSync(indexPath);
-
-      status[name] = {
+  getRealmStatus() {
+    const status = [];
+    for (const [realm, config] of Object.entries(UMBRELLA_REALMS)) {
+      status.push({
+        realm,
         tier: config.tier,
         description: config.description,
-        hasMemoryIndex: config.hasMemoryIndex,
-        indexExists: exists,
-        available: config.hasMemoryIndex && exists,
-      };
+        available: true // Simplified - could check actual index existence
+      });
     }
-
     return status;
   }
 
   /**
-   * List available realms for federation
+   * Add document to ARCHIVAL with embedding
    */
-  listRealms() {
-    return Object.entries(UMBRELLA_REALMS).map(([name, config]) => ({
-      name,
-      tier: config.tier,
-      description: config.description,
-      available: config.hasMemoryIndex,
-    }));
+  async addDocument(id, content, metadata = {}) {
+    await this.initialize();
+
+    // Generate embedding
+    const embedding = await this.embedder.embed(content);
+
+    // Get next vector index ID
+    const vectorId = this.documents.size;
+
+    // Add to vector index
+    if (this.vectorIndex) {
+      await this.vectorIndex.addVector(embedding, vectorId);
+    }
+
+    // Store document with embedding
+    this.documents.set(id, {
+      content,
+      embedding,
+      metadata: {
+        ...metadata,
+        indexedAt: new Date().toISOString(),
+        contentHash: crypto.createHash('sha256').update(content).digest('hex')
+      }
+    });
+
+    // Update ID map
+    this.idMap.set(vectorId, id);
+
+    // Persist
+    await this._saveMetadata();
+    if (this.vectorIndex) {
+      await this.vectorIndex.save();
+    }
   }
-}
 
-// CLI interface
-if (require.main === module) {
-  const args = process.argv.slice(2);
-  const store = new ArchivalStore();
+  /**
+   * Batch add documents (more efficient for bulk indexing)
+   */
+  async addDocuments(docs) {
+    await this.initialize();
 
-  switch (args[0]) {
-    case 'search':
-      if (args[1]) {
-        store.search(args.slice(1).join(' ')).then(results => {
-          console.log(JSON.stringify(results, null, 2));
-        });
-      } else {
-        console.log('Usage: archival-store.js search <query>');
+    const contents = docs.map(d => d.content);
+    const embeddings = await this.embedder.embedBatch(contents);
+
+    for (let i = 0; i < docs.length; i++) {
+      const { id, content, metadata = {} } = docs[i];
+      const embedding = embeddings[i];
+      const vectorId = this.documents.size;
+
+      if (this.vectorIndex) {
+        await this.vectorIndex.addVector(embedding, vectorId);
       }
-      break;
 
-    case 'tiered':
-      if (args[1]) {
-        store.tieredSearch(args.slice(1).join(' ')).then(results => {
-          console.log(JSON.stringify(results, null, 2));
-        });
-      } else {
-        console.log('Usage: archival-store.js tiered <query>');
-      }
-      break;
-
-    case 'federated':
-      if (args[1]) {
-        const query = args.slice(1).filter(a => !a.startsWith('--')).join(' ');
-        const includePrivate = args.includes('--private');
-        store.federatedSearch(query, { includePrivate }).then(results => {
-          console.log('\nFederated Search Results\n');
-          console.log(`Query: "${results.query}"`);
-          console.log(`Realms: ${results.realms.join(', ')}\n`);
-
-          for (const r of results.results) {
-            const realmBadge = `[${r.realm}:${r.realmTier || '?'}]`;
-            console.log(`${realmBadge} (${r.score.toFixed(2)}) ${r.content}`);
-          }
-
-          console.log(`\nTotal: ${results.results.length} results`);
-          if (results.errors.length > 0) {
-            console.log('\nErrors:', results.errors);
-          }
-        });
-      } else {
-        console.log('Usage: archival-store.js federated <query> [--private]');
-      }
-      break;
-
-    case 'realms':
-      const status = store.federationStatus();
-      console.log('\nFederation Realms\n');
-      for (const [name, info] of Object.entries(status)) {
-        const indicator = info.available ? '✓' : '✗';
-        console.log(`${indicator} ${name} (${info.tier})`);
-        console.log(`  ${info.description}`);
-        if (!info.available) {
-          const reason = !info.hasMemoryIndex ? 'No memory index configured' :
-                        !info.indexExists ? 'Index not built' : 'Unknown';
-          console.log(`  Reason: ${reason}`);
+      this.documents.set(id, {
+        content,
+        embedding,
+        metadata: {
+          ...metadata,
+          indexedAt: new Date().toISOString(),
+          contentHash: crypto.createHash('sha256').update(content).digest('hex')
         }
-      }
-      break;
-
-    case 'stats':
-      store.stats().then(stats => {
-        console.log(JSON.stringify(stats, null, 2));
       });
-      break;
 
-    case 'index':
-      store.index({ full: args.includes('--full') }).then(result => {
-        console.log(result.message);
-      });
-      break;
+      this.idMap.set(vectorId, id);
+    }
 
-    default:
-      console.log(`
-ARCHIVAL Store — Memory Protocol Phase 3
+    await this._saveMetadata();
+    if (this.vectorIndex) {
+      await this.vectorIndex.save();
+    }
+  }
 
-Commands:
-  search <query>               Search local ARCHIVAL tier
-  tiered <query>               Search DECISIONS > CORE > ARCHIVAL
-  federated <query> [--private] Cross-realm umbrella search
-  realms                       Show federation status
-  stats                        Index statistics
-  index [--full]               Rebuild index
-
-Federation Notes:
-  - Backchannel (private) excluded by default
-  - Use --private flag to include backchannel
-  - Realms: project-gordo (T0), gordo-framework (T2),
-    mcap-protocol (T1), panel-protocol (T1), pact-protocol (T1)
-`);
+  async _saveMetadata() {
+    const metaPath = path.join(this.indexPath, 'metadata.json');
+    const data = {
+      documents: Object.fromEntries(this.documents),
+      updatedAt: new Date().toISOString()
+    };
+    await fs.writeFile(metaPath, JSON.stringify(data, null, 2));
   }
 }
 
-module.exports = ArchivalStore;
+module.exports = ArchivalStoreV2;

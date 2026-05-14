@@ -100,20 +100,20 @@ async function main() {
 
     case 'realms': {
       const store = new ArchivalStore();
-      const status = store.federationStatus();
+      const status = store.getRealmStatus();
 
       console.log('\nFederation Realms\n');
       console.log('Realm              Tier  Status');
       console.log('─'.repeat(45));
 
-      for (const [name, info] of Object.entries(status)) {
+      for (const info of status) {
         const indicator = info.available ? '✓' : '✗';
         const tierBadge = info.tier.padEnd(5);
-        console.log(`${indicator} ${name.padEnd(18)} ${tierBadge} ${info.description}`);
+        console.log(`${indicator} ${info.realm.padEnd(18)} ${tierBadge} ${info.description}`);
       }
 
-      const available = Object.values(status).filter(s => s.available).length;
-      console.log(`\nAvailable for search: ${available}/${Object.keys(status).length}`);
+      const available = status.filter(s => s.available).length;
+      console.log(`\nAvailable for search: ${available}/${status.length}`);
       break;
     }
 
