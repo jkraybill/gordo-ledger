@@ -22,3 +22,6 @@ dist/
 
 # Gordo memory index
 .gordo-memory/
+mcp/node_modules/
+mcp/dist/
+mcp/.gordo-memory/

@@ -1,0 +1,41 @@
+{
+  "name": "@gordo/ledger-mcp",
+  "version": "0.1.0",
+  "description": "Semantic memory search MCP server for Gordo Ledger",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "gordo-ledger-mcp": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/index.js",
+    "test": "vitest"
+  },
+  "keywords": [
+    "mcp",
+    "gordo-ledger",
+    "semantic-search",
+    "memory",
+    "vector-embeddings"
+  ],
+  "author": "Gordo <gordo@dashcord.com>",
+  "license": "MIT",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.28.0",
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "commander": "^12.0.0",
+    "hnswlib-node": "^3.0.0",
+    "minimatch": "^10.1.1",
+    "openai": "^4.58.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.0",
+    "vitest": "^1.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

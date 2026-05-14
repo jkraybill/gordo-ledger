@@ -1,0 +1,126 @@
+{
+  "description": "Test queries for embedding strategy comparison",
+  "created": "S214 2026-05-12",
+  "queries": [
+    {
+      "id": "q1",
+      "query": "Tool Sovereignty",
+      "type": "keyword",
+      "expected_patterns": ["Tool Sovereignty", "S160", "S161", "panel"]
+    },
+    {
+      "id": "q2",
+      "query": "keyhole process outbound flow",
+      "type": "architectural",
+      "expected_patterns": ["keyhole", "#66", "S117", "bilateral consent"]
+    },
+    {
+      "id": "q3",
+      "query": "when did we decide on hub sessions",
+      "type": "natural_language",
+      "expected_patterns": ["S18", "hub", "session", "#79"]
+    },
+    {
+      "id": "q4",
+      "query": "bilateral consensus idea-to-release",
+      "type": "terminology",
+      "expected_patterns": ["idea-to-release", "#65", "#104", "bilateral"]
+    },
+    {
+      "id": "q5",
+      "query": "z-point discipline feedback",
+      "type": "memory",
+      "expected_patterns": ["z-point", "Tier 0", "enumerated"]
+    },
+    {
+      "id": "q6",
+      "query": "MCAP adoption backchannel",
+      "type": "architectural",
+      "expected_patterns": ["MCAP", "S26", "record-001", "attestation"]
+    },
+    {
+      "id": "q7",
+      "query": "panel protocol T1 admission",
+      "type": "decision",
+      "expected_patterns": ["panel-protocol", "S63", "T1", "#128"]
+    },
+    {
+      "id": "q8",
+      "query": "Gordo GitHub identity SSH keys",
+      "type": "reference",
+      "expected_patterns": ["gordo-ai", "SSH", "GPG", "S123"]
+    },
+    {
+      "id": "q9",
+      "query": "first AMA ceremony questions",
+      "type": "event",
+      "expected_patterns": ["S212", "AMA", "panel", "question"]
+    },
+    {
+      "id": "q10",
+      "query": "bias convergence red flag",
+      "type": "feedback",
+      "expected_patterns": ["bias", "convergence", "stress-test", "domain-split"]
+    },
+    {
+      "id": "q11",
+      "query": "pre-commit hook incremental indexing",
+      "type": "technical",
+      "expected_patterns": ["pre-commit", "index", "gordo-memory"]
+    },
+    {
+      "id": "q12",
+      "query": "JK dense reference cognitive style",
+      "type": "user_preference",
+      "expected_patterns": ["JK", "linear", "reference-tracking", "ELIJKP"]
+    },
+    {
+      "id": "q13",
+      "query": "constitutional freeze mutual self-binding",
+      "type": "governance",
+      "expected_patterns": ["freeze", "S14", "self-bound", "#68"]
+    },
+    {
+      "id": "q14",
+      "query": "drafter easiest path collapse bias",
+      "type": "pattern",
+      "expected_patterns": ["drafter", "easiest-path", "options-menu", "#27"]
+    },
+    {
+      "id": "q15",
+      "query": "how does Phase C work for T0 content",
+      "type": "process",
+      "expected_patterns": ["Phase C", "T0", "matryoshka", "MCAP"]
+    },
+    {
+      "id": "q16",
+      "query": "umbrella projects scope narrow decision",
+      "type": "architectural",
+      "expected_patterns": ["S12", "narrow-scope", "5 projects", "umbrella"]
+    },
+    {
+      "id": "q17",
+      "query": "GPG key hygiene never sign as JK",
+      "type": "constraint",
+      "expected_patterns": ["GPG", "never", "sign", "key-hygiene"]
+    },
+    {
+      "id": "q18",
+      "query": "compact single arc session rhythm",
+      "type": "rhythm",
+      "expected_patterns": ["compact", "single-arc", "1h", "deliverable"]
+    },
+    {
+      "id": "q19",
+      "query": "WWGD escalation grades within session",
+      "type": "process",
+      "expected_patterns": ["WWGD", "escalation", "grade", "delegation"]
+    },
+    {
+      "id": "q20",
+      "query": "old laptop archaeology rescue mount",
+      "type": "reference",
+      "expected_patterns": ["old-laptop", "WSL2", "VHDX", "Seagate"]
+    }
+  ]
+}

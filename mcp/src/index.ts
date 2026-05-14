@@ -1,0 +1,452 @@
+/**
+ * Gordo Memory MCP Server
+ * Provides semantic memory search for Gordo Framework journals
+ */
+
+import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import {
+  CallToolRequestSchema,
+  ListToolsRequestSchema,
+  Tool,
+} from '@modelcontextprotocol/sdk/types.js';
+import { MemoryManager } from './memory-manager-v2.js';
+import { GraphManager, GraphConfig } from './graph-manager.js';
+import type { MemoryConfig } from './types.js';
+import * as fs from 'fs/promises';
+import * as path from 'path';
+
+const DEFAULT_CONFIG: MemoryConfig = {
+  enabled: true,
+  provider: 'openai',
+  model: 'text-embedding-3-small',
+  threshold: 0.5,
+  indexPath: '.gordo-memory',
+  autoIndex: true,
+  openaiApiKey: process.env.OPENAI_API_KEY,
+  indexDocs: true,  // Fix #142: Enable docs indexing by default
+  indexCode: false, // Fix #142: Disable code indexing by default (noisy)
+};
+
+class GordoMemoryServer {
+  private server: Server;
+  private memoryManager: MemoryManager | null = null;
+  private graphManager: GraphManager | null = null;
+  private repoPath: string;
+
+  constructor() {
+    this.server = new Server(
+      {
+        name: 'gordo-memory',
+        version: '0.1.0',
+      },
+      {
+        capabilities: {
+          tools: {},
+        },
+      }
+    );
+
+    // Get repo path from environment or current directory
+    this.repoPath = process.env.GORDO_REPO_PATH || process.cwd();
+
+    this.setupToolHandlers();
+
+    // Error handling
+    this.server.onerror = (error) => console.error('[MCP Error]', error);
+    process.on('SIGINT', async () => {
+      await this.server.close();
+      process.exit(0);
+    });
+  }
+
+  private async loadConfig(): Promise<MemoryConfig> {
+    try {
+      const configPath = path.join(this.repoPath, 'config.json');
+      const configContent = await fs.readFile(configPath, 'utf-8');
+      const config = JSON.parse(configContent);
+
+      return {
+        ...DEFAULT_CONFIG,
+        ...config.memory?.semantic,
+      };
+    } catch {
+      // Use defaults if config not found
+      return DEFAULT_CONFIG;
+    }
+  }
+
+  private async getMemoryManager(): Promise<MemoryManager> {
+    if (!this.memoryManager) {
+      const config = await this.loadConfig();
+      this.memoryManager = new MemoryManager(config);
+      await this.memoryManager.initialize();
+    }
+    return this.memoryManager;
+  }
+
+  private async getGraphManager(): Promise<GraphManager> {
+    if (!this.graphManager) {
+      const config = await this.loadConfig();
+      const graphConfig: GraphConfig = {
+        indexPath: config.indexPath,
+        provider: config.provider as 'openai' | 'ollama',
+        model: config.model,
+        apiKey: config.openaiApiKey,
+        ollamaUrl: config.ollamaUrl
+      };
+      this.graphManager = new GraphManager(graphConfig);
+      await this.graphManager.initialize();
+    }
+    return this.graphManager;
+  }
+
+  private setupToolHandlers() {
+    this.server.setRequestHandler(ListToolsRequestSchema, async () => {
+      return {
+        tools: [
+          {
+            name: 'search',
+            description: 'Semantic search across journal sessions using natural language queries',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                query: {
+                  type: 'string',
+                  description: 'Natural language search query (e.g., "OAuth authentication bugs")',
+                },
+                limit: {
+                  type: 'number',
+                  description: 'Maximum number of results to return (default: 5)',
+                },
+                threshold: {
+                  type: 'number',
+                  description: 'Similarity threshold 0-1 (default: 0.5)',
+                },
+                includeFullContent: {
+                  type: 'boolean',
+                  description: 'Return full content instead of truncated preview (default: false). Use get_session() for full content instead.',
+                },
+                maxContentLength: {
+                  type: 'number',
+                  description: 'Maximum characters per result content (default: 500)',
+                },
+              },
+              required: ['query'],
+            },
+          },
+          {
+            name: 'index',
+            description: 'Index or reindex journal sessions for semantic search',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                incremental: {
+                  type: 'boolean',
+                  description: 'Only index new sessions (default: true)',
+                },
+                reindex: {
+                  type: 'boolean',
+                  description: 'Force full reindex (default: false)',
+                },
+              },
+            },
+          },
+          {
+            name: 'get_session',
+            description: 'Retrieve a specific session by ID',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                sessionId: {
+                  type: 'string',
+                  description: 'Session ID (e.g., "Session_01")',
+                },
+              },
+              required: ['sessionId'],
+            },
+          },
+          {
+            name: 'stats',
+            description: 'Get memory index statistics',
+            inputSchema: {
+              type: 'object',
+              properties: {},
+            },
+          },
+          {
+            name: 'build_graph',
+            description: 'Build knowledge graph from journal sessions (extracts relationships between sessions)',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                reindex: {
+                  type: 'boolean',
+                  description: 'Force rebuild of entire graph (default: false)',
+                },
+              },
+            },
+          },
+          {
+            name: 'query_patterns',
+            description: 'Find sessions with a specific pattern (e.g., "oauth", "database", "deployment")',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                pattern: {
+                  type: 'string',
+                  description: 'Pattern name to search for',
+                },
+              },
+              required: ['pattern'],
+            },
+          },
+          {
+            name: 'find_path',
+            description: 'Find relationship path between two sessions',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                fromSessionId: {
+                  type: 'string',
+                  description: 'Start session ID',
+                },
+                toSessionId: {
+                  type: 'string',
+                  description: 'End session ID',
+                },
+              },
+              required: ['fromSessionId', 'toSessionId'],
+            },
+          },
+          {
+            name: 'query_dependencies',
+            description: 'Get sessions that a given session depends on for context',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                sessionId: {
+                  type: 'string',
+                  description: 'Session ID to analyze',
+                },
+              },
+              required: ['sessionId'],
+            },
+          },
+        ] as Tool[],
+      };
+    });
+
+    this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
+      const { name, arguments: args } = request.params;
+
+      try {
+        const manager = await this.getMemoryManager();
+
+        switch (name) {
+          case 'search': {
+            const {
+              query,
+              limit = 5,
+              threshold = 0.5,
+              includeFullContent = false,
+              maxContentLength = 500
+            } = args as any;
+
+            const results = await manager.search({
+              query,
+              limit,
+              threshold,
+              includeFullContent,
+              maxContentLength
+            });
+
+            // Compact format: one line per result, optimized for LLM consumption
+            // Format: "77% issue-4 — content preview..."
+            const lines = results.map(r => {
+              const pct = Math.round(r.similarity * 100);
+              // Collapse whitespace in content preview
+              const preview = r.content.replace(/\s+/g, ' ').substring(0, 120);
+              return `${pct}% ${r.sessionId} — ${preview}`;
+            });
+
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: lines.join('\n'),
+                },
+              ],
+            };
+          }
+
+          case 'index': {
+            const { incremental = true, reindex = false } = args as any;
+
+            if (reindex) {
+              const result = await manager.reindex(this.repoPath);
+              return {
+                content: [
+                  {
+                    type: 'text',
+                    text: `Reindexed ${result.indexed} sessions`,
+                  },
+                ],
+              };
+            } else {
+              const result = await manager.indexRepository(this.repoPath, incremental);
+              return {
+                content: [
+                  {
+                    type: 'text',
+                    text: `Indexed ${result.indexed} new sessions, skipped ${result.skipped} existing`,
+                  },
+                ],
+              };
+            }
+          }
+
+          case 'get_session': {
+            const { sessionId } = args as any;
+            const session = await manager.getSession(sessionId);
+
+            if (!session) {
+              return {
+                content: [
+                  {
+                    type: 'text',
+                    text: `Session ${sessionId} not found`,
+                  },
+                ],
+              };
+            }
+
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify(session, null, 2),
+                },
+              ],
+            };
+          }
+
+          case 'stats': {
+            const stats = await manager.getStats();
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify(stats, null, 2),
+                },
+              ],
+            };
+          }
+
+          case 'build_graph': {
+            const graphManager = await this.getGraphManager();
+            const { reindex = false } = args as any;
+
+            if (reindex) {
+              await graphManager.clear();
+            }
+
+            // Get sessions from memory manager
+            const sessions = await manager.getAllSessions();
+            const result = await graphManager.buildGraph(sessions);
+
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: `Built knowledge graph: ${result.nodesCreated} nodes, ${result.edgesCreated} edges`,
+                },
+              ],
+            };
+          }
+
+          case 'query_patterns': {
+            const graphManager = await this.getGraphManager();
+            const { pattern } = args as any;
+
+            const result = await graphManager.queryPatterns(pattern);
+
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify(result, null, 2),
+                },
+              ],
+            };
+          }
+
+          case 'find_path': {
+            const graphManager = await this.getGraphManager();
+            const { fromSessionId, toSessionId } = args as any;
+
+            const path = await graphManager.findPath(fromSessionId, toSessionId);
+
+            if (!path) {
+              return {
+                content: [
+                  {
+                    type: 'text',
+                    text: `No path found between ${fromSessionId} and ${toSessionId}`,
+                  },
+                ],
+              };
+            }
+
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify(path, null, 2),
+                },
+              ],
+            };
+          }
+
+          case 'query_dependencies': {
+            const graphManager = await this.getGraphManager();
+            const { sessionId } = args as any;
+
+            const result = await graphManager.queryDependencies(sessionId);
+
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify(result, null, 2),
+                },
+              ],
+            };
+          }
+
+          default:
+            throw new Error(`Unknown tool: ${name}`);
+        }
+      } catch (error) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Error: ${error}`,
+            },
+          ],
+          isError: true,
+        };
+      }
+    });
+  }
+
+  async run() {
+    const transport = new StdioServerTransport();
+    await this.server.connect(transport);
+    console.error('Gordo Memory MCP server running on stdio');
+  }
+}
+
+const server = new GordoMemoryServer();
+server.run().catch(console.error);

@@ -1,0 +1,71 @@
+{
+  "memory": {
+    "semantic": {
+      "enabled": true,
+      "provider": "ollama",
+      "model": "mxbai-embed-large",
+      "threshold": 0.5,
+      "indexPath": ".gordo-memory",
+      "autoIndex": true,
+      "indexDocs": true,
+      "indexCode": false,
+      "indexPatterns": {
+        "include": [
+          "docs/**/*.md",
+          "*.md",
+          "README.md",
+          "CHANGELOG.md"
+        ],
+        "exclude": [
+          "node_modules/**",
+          ".git/**",
+          "dist/**",
+          "build/**",
+          ".gordo-memory/**"
+        ]
+      },
+      "hierarchicalBoost": {
+        "session": 2.0,
+        "issue": 1.5,
+        "commit": 1.2,
+        "docs": 1.0,
+        "code": 0.5
+      }
+    },
+    "fiveLayer": {
+      "enabled": true,
+      "description": "Five-Layer Memory: Sessions > Issues > Commits > Docs > Code",
+      "syncOnCommit": true,
+      "layers": {
+        "sessions": {
+          "enabled": true,
+          "source": "JOURNAL.md or sessions/",
+          "boost": 2.0
+        },
+        "issues": {
+          "enabled": true,
+          "source": "github-issues/",
+          "syncCommand": "scripts/sync-issues.sh",
+          "boost": 1.5
+        },
+        "commits": {
+          "enabled": true,
+          "source": "git-commits/",
+          "syncCommand": "scripts/sync-commits.sh",
+          "boost": 1.2
+        },
+        "docs": {
+          "enabled": true,
+          "source": "docs/**/*.md, *.md",
+          "boost": 1.0
+        },
+        "code": {
+          "enabled": false,
+          "source": "**/*.{ts,js,py,go,rs}",
+          "boost": 0.5,
+          "note": "Disabled by default - can be noisy. Enable for code-heavy searches."
+        }
+      }
+    }
+  }
+}

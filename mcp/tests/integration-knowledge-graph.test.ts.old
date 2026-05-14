@@ -1,0 +1,331 @@
+/**
+ * Integration Tests - Knowledge Graph Workflow
+ * Tests PARSE → EXTRACT RELATIONSHIPS → BUILD GRAPH → QUERY
+ *
+ * Validates:
+ * - Relationship extraction accuracy
+ * - Dependency tracking correctness
+ * - Graph query performance
+ * - Multi-hop relationship discovery
+ */
+
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { createJournalParser } from '../src/parser/journal-parser-v2.js';
+import { RelationshipExtractor } from '../src/graph/extractor.js';
+import { TinyGraph, GraphQuerier } from '../src/graph/index.js';
+import fs from 'fs/promises';
+import path from 'path';
+
+const testGraphPath = '.test-integration-graph.json';
+const testJournalPath = './test-fixtures/graph-journal.md';
+
+describe('Integration: Knowledge Graph Workflow', () => {
+  let graph: TinyGraph;
+  let querier: GraphQuerier;
+  let extractor: RelationshipExtractor;
+
+  beforeAll(async () => {
+    // Create test journal with known relationships
+    await createGraphTestJournal(testJournalPath);
+
+    // Initialize components
+    graph = new TinyGraph();
+    querier = new GraphQuerier(graph);
+    extractor = new RelationshipExtractor({
+      provider: 'ollama',
+      model: 'llama3.2:latest',
+      ollamaUrl: 'http://localhost:11434'
+    });
+  });
+
+  afterAll(async () => {
+    try {
+      await fs.rm(testGraphPath);
+      await fs.rm(path.dirname(testJournalPath), { recursive: true });
+    } catch (e) {
+      // Ignore
+    }
+  });
+
+  it('should build graph from journal with relationship extraction', async () => {
+    // Step 1: Parse journal
+    const parser = createJournalParser();
+    const sessions = await parser.parseJournalFile(testJournalPath);
+
+    expect(sessions.length).toBe(5);
+
+    // Step 2: Add session nodes to graph
+    for (const session of sessions) {
+      graph.addNode({
+        id: session.id,
+        type: 'session',
+        date: session.date,
+        summary: session.summary || '',
+        patterns: session.patterns || [],
+        issues: session.issues || []
+      });
+    }
+
+    // Step 3: Extract relationships (using LLM) and add edges
+    for (const session of sessions) {
+      const extraction = await extractor.extract(session.content, session.id);
+
+      // Add dependency edges
+      for (const dep of extraction.dependencies) {
+        graph.addEdge({
+          id: `${session.id}_dep_${dep.target}`,
+          type: 'depends_on',
+          source: session.id,
+          target: dep.target,
+          metadata: { reason: dep.reason },
+          created: new Date().toISOString()
+        });
+      }
+
+      // Add resolution edges
+      for (const res of extraction.resolutions) {
+        graph.addEdge({
+          id: `${session.id}_res_${res.target}`,
+          type: 'resolves',
+          source: session.id,
+          target: res.target,
+          metadata: { reason: res.reason },
+          created: new Date().toISOString()
+        });
+      }
+    }
+
+    // Step 4: Verify graph structure
+    const stats = graph.getStats();
+    expect(stats.nodeCount).toBe(5); // 5 sessions
+    expect(stats.edgeCount).toBeGreaterThan(0); // Should have extracted relationships
+
+    console.log('Graph stats:', stats);
+  }, 60000); // 60s timeout for LLM extraction
+
+  it('should find dependencies correctly', async () => {
+    // Query dependencies for Session_03 (should depend on Session_01 and Session_02)
+    const result = querier.queryDependencies('Session_03');
+
+    expect(result.directDependencies.length).toBeGreaterThan(0);
+
+    // Verify dependency content
+    const depIds = result.directDependencies.map(d => d.id);
+    console.log('Session_03 dependencies:', depIds);
+
+    // Session_03 builds on earlier sessions
+    expect(depIds.some(id => id.includes('Session_01') || id.includes('Session_02'))).toBe(true);
+  });
+
+  it('should find dependents (reverse dependencies)', async () => {
+    // Query what depends on Session_01
+    const dependents = graph.getDependents('Session_01');
+
+    expect(dependents.length).toBeGreaterThan(0);
+
+    const depIds = dependents.map(d => d.sessionId);
+    console.log('Session_01 dependents:', depIds);
+
+    // Later sessions should depend on Session_01
+    expect(depIds.some(id => id.includes('Session_02') || id.includes('Session_03'))).toBe(true);
+  });
+
+  it('should find chronological chains', async () => {
+    // Find chain from Session_01 to Session_05
+    const chain = graph.findChronologicalChain('Session_01', 'Session_05');
+
+    expect(chain).toBeDefined();
+    expect(chain!.length).toBeGreaterThan(0);
+
+    console.log('Chronological chain:', chain);
+
+    // Chain should be ordered chronologically
+    const sessionNumbers = chain!.map(id => {
+      const match = id.match(/Session_(\d+)/);
+      return match ? parseInt(match[1]) : 0;
+    });
+
+    for (let i = 1; i < sessionNumbers.length; i++) {
+      expect(sessionNumbers[i]).toBeGreaterThan(sessionNumbers[i-1]);
+    }
+  });
+
+  it('should discover related sessions via patterns', async () => {
+    // Find sessions with "testing" pattern
+    const testingSessions = graph.queryByPattern('testing');
+
+    expect(testingSessions.length).toBeGreaterThan(0);
+
+    console.log('Testing pattern sessions:', testingSessions);
+
+    // Should find multiple sessions about testing
+    expect(testingSessions.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('should persist and reload graph correctly', async () => {
+    // Save graph
+    await graph.save(testGraphPath);
+
+    // Create new graph and load
+    const newGraph = new TinyGraph();
+    await newGraph.load(testGraphPath);
+
+    // Verify stats match
+    const originalStats = graph.getStats();
+    const loadedStats = newGraph.getStats();
+
+    expect(loadedStats.nodeCount).toBe(originalStats.nodeCount);
+    expect(loadedStats.edgeCount).toBe(originalStats.edgeCount);
+
+    // Verify queries still work
+    const deps = newGraph.getDependencies('Session_03');
+    expect(deps.length).toBeGreaterThan(0);
+  });
+
+  it('should handle multi-hop relationship discovery', async () => {
+    // Find all sessions transitively related to Session_01
+    const related = graph.getRelatedSessions('Session_01', {
+      maxDepth: 3,
+      minConfidence: 0.5
+    });
+
+    expect(related.length).toBeGreaterThan(0);
+
+    console.log('Multi-hop related sessions:', related);
+
+    // Should find sessions beyond direct dependencies
+    expect(related.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('should measure query performance', async () => {
+    const queries = [
+      () => graph.getDependencies('Session_03'),
+      () => graph.getDependents('Session_01'),
+      () => graph.findChronologicalChain('Session_01', 'Session_05'),
+      () => graph.queryByPattern('testing'),
+      () => graph.getRelatedSessions('Session_02')
+    ];
+
+    let totalLatency = 0;
+
+    for (const query of queries) {
+      const start = Date.now();
+      query();
+      const latency = Date.now() - start;
+      totalLatency += latency;
+    }
+
+    const avgLatency = totalLatency / queries.length;
+
+    // Graph queries should be <10ms average (in-memory)
+    expect(avgLatency).toBeLessThan(10);
+    console.log('Average graph query latency:', avgLatency, 'ms');
+  });
+});
+
+async function createGraphTestJournal(journalPath: string) {
+  const dir = path.dirname(journalPath);
+  await fs.mkdir(dir, { recursive: true });
+
+  const journal = `# Session Journal
+
+## Session 1: Framework Setup (2025-01-01)
+
+**Summary:** Initial framework setup with TDD
+
+**Details:**
+Set up gordo-framework with test-driven development.
+Created core templates and documentation structure.
+Established testing patterns.
+
+**Patterns:**
+- TDD prevents bugs early
+- Tests as documentation
+
+**Issues:** #1
+
+**Signals:** ✓
+
+
+## Session 2: Trust Protocol Design (2025-01-02)
+
+**Summary:** Designed trust calibration system
+
+**Details:**
+Built trust protocol (Level 0-3) based on Session 1 TDD foundation.
+Trust earned through demonstrated competence.
+Depends on testing infrastructure from Session 1.
+
+**Patterns:**
+- Trust through evidence
+- Progressive autonomy
+
+**Issues:** #2
+
+**Signals:** ✓
+
+**Dependencies:** Session 1 (testing foundation)
+
+
+## Session 3: Session Continuity (2025-01-03)
+
+**Summary:** Implemented journal and session memory
+
+**Details:**
+Created JOURNAL.md format building on Session 1 structure and Session 2 trust model.
+Compressed signal format (✓✗⚠→±Δ).
+256-char limit for efficiency.
+
+**Patterns:**
+- Compression essential for scale
+- Signals > prose
+
+**Issues:** #3
+
+**Signals:** ✓
+
+**Dependencies:** Session 1 (structure), Session 2 (trust context)
+
+
+## Session 4: Semantic Memory Search (2025-01-04)
+
+**Summary:** Built hybrid retrieval system
+
+**Details:**
+Implemented semantic search with hybrid retrieval (0.7 dense + 0.3 BM25).
+Uses testing patterns from Session 1.
+Enables finding patterns across journal created in Session 3.
+
+**Patterns:**
+- Hybrid retrieval essential
+- Empirical validation
+
+**Issues:** #4
+
+**Signals:** ✓
+
+**Dependencies:** Session 1 (testing), Session 3 (journal format)
+
+
+## Session 5: Knowledge Graph (2025-01-05)
+
+**Summary:** Built relationship mapping
+
+**Details:**
+Created knowledge graph to discover dependencies between sessions.
+Fixes issue where Session 3 and Session 4 improvements weren't linked.
+Uses semantic search from Session 4 to find related sessions.
+
+**Patterns:**
+- Relationships matter
+- Graph queries fast
+
+**Issues:** #5
+
+**Signals:** ✓
+
+**Dependencies:** Session 3 (provides session structure), Session 4 (semantic search)
+`;
+
+  await fs.writeFile(journalPath, journal);
+}

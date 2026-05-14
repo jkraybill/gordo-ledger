@@ -1,0 +1,268 @@
+{
+  "strategy": "mxbai-truncate",
+  "model": "mxbai-embed-large",
+  "avg_match_rate": 0.3125,
+  "avg_latency_ms": 1412.85,
+  "results": [
+    {
+      "query_id": "q1",
+      "query": "Tool Sovereignty",
+      "matches": 3,
+      "total_patterns": 4,
+      "match_rate": 0.75,
+      "top_results": [
+        "89% commit-9fdbde5 → git-commits/commit-9fdbde5.md — ## Message Tool Sovereignty experiential panel Round 1...",
+        "88% commit-4e8e30e → git-commits/commit-4e8e30e.md — ## Message Tool Sovereignty panel synthesis (S161) Ke...",
+        "89% git-commits/commit-9fdbde5.md — # Commit 9fdbde5: Tool Sovereignty experiential panel R..."
+      ],
+      "latency_ms": 1574
+    },
+    {
+      "query_id": "q2",
+      "query": "keyhole process outbound flow",
+      "matches": 2,
+      "total_patterns": 4,
+      "match_rate": 0.5,
+      "top_results": [
+        "78% issue-66 → github-issues/issue-66.md — ## Description ## Origin context S12 2026-04-20 (#39...",
+        "77% issue-121 → github-issues/issue-121.md — ## Description ## Audit ask Pre-v1 (target milestone...",
+        "80% commit-3920fc5 → git-commits/commit-3920fc5.md — ## Message CLAUDE.md: add Keyhole-Process section (#66..."
+      ],
+      "latency_ms": 1415
+    },
+    {
+      "query_id": "q3",
+      "query": "when did we decide on hub sessions",
+      "matches": 3,
+      "total_patterns": 4,
+      "match_rate": 0.75,
+      "top_results": [
+        "69% Session_65 → SESSION_LOG.md — ## Session 65 (2026-04-29) **Opened:** 2026-04-29 14:4...",
+        "62% Session_165 → SESSION_LOG.md — ## Session 165 (2026-05-08) **Opened:** 2026-05-08 23:...",
+        "75% issue-79 → github-issues/issue-79.md — ## Description ## Origin S18 2026-04-21 bilateral rat..."
+      ],
+      "latency_ms": 1697
+    },
+    {
+      "query_id": "q4",
+      "query": "bilateral consensus idea-to-release",
+      "matches": 2,
+      "total_patterns": 4,
+      "match_rate": 0.5,
+      "top_results": [
+        "78% issue-65 → github-issues/issue-65.md — ## Description ## Context S12 2026-04-20 (12:54-13:07...",
+        "73% issue-46 → github-issues/issue-46.md — ## Description ## Source Emerged 2026-04-19 S8 during...",
+        "75% commit-f86495b → git-commits/commit-f86495b.md — ## Message S24 #104 IDEA_TO_RELEASE_DRAFT v0.1 — pass-..."
+      ],
+      "latency_ms": 1478
+    },
+    {
+      "query_id": "q5",
+      "query": "z-point discipline feedback",
+      "matches": 0,
+      "total_patterns": 3,
+      "match_rate": 0,
+      "top_results": [
+        "69% commit-98153c0 → git-commits/commit-98153c0.md — ## Message record-029: add z-structure per skill pre-f...",
+        "67% commit-c12d81a → git-commits/commit-c12d81a.md — ## Message record-028: z-statements as consent targets...",
+        "66% git-commits/commit-98153c0.md — # Commit 98153c0: record-029: add z-structure per skill..."
+      ],
+      "latency_ms": 1566
+    },
+    {
+      "query_id": "q6",
+      "query": "MCAP adoption backchannel",
+      "matches": 2,
+      "total_patterns": 4,
+      "match_rate": 0.5,
+      "top_results": [
+        "76% Session_26 → SESSION_LOG.md — ## Session 26 (2026-04-21 → 2026-04-22) **Opened:** 20...",
+        "81% commit-b9881aa → git-commits/commit-b9881aa.md — ## Message S26 MCAP adoption restructure — convention...",
+        "75% commit-1a0a7f1 → git-commits/commit-1a0a7f1.md — ## Message S109 — MCAP_ADOPTION.md row 013 appended (#..."
+      ],
+      "latency_ms": 1442
+    },
+    {
+      "query_id": "q7",
+      "query": "panel protocol T1 admission",
+      "matches": 3,
+      "total_patterns": 4,
+      "match_rate": 0.75,
+      "top_results": [
+        "79% commit-b6a3e5f → git-commits/commit-b6a3e5f.md — ## Message S63 record-008 finalized: panel-protocol T1...",
+        "78% commit-23970bf → git-commits/commit-23970bf.md — ## Message S63 record-008 substrate: panel-protocol T1...",
+        "80% git-commits/commit-b6a3e5f.md — # Commit b6a3e5f: S63 record-008 finalized: panel-proto..."
+      ],
+      "latency_ms": 1416
+    },
+    {
+      "query_id": "q8",
+      "query": "Gordo GitHub identity SSH keys",
+      "matches": 1,
+      "total_patterns": 4,
+      "match_rate": 0.25,
+      "top_results": [
+        "76% Session_123 → SESSION_LOG.md — ## Session 123 (2026-05-06) **Opened:** 2026-05-06 19:...",
+        "76% Session_125 → SESSION_LOG.md — ## Session 125 (2026-05-06) **Opened:** 2026-05-06 22:...",
+        "72% issue-22 → github-issues/issue-22.md — ## Description Session 1 observation. Currently operat..."
+      ],
+      "latency_ms": 1620
+    },
+    {
+      "query_id": "q9",
+      "query": "first AMA ceremony questions",
+      "matches": 1,
+      "total_patterns": 4,
+      "match_rate": 0.25,
+      "top_results": [
+        "72% Session_212 → SESSION_LOG.md — ## Session 212 (2026-05-12) **Opened:** 2026-05-12 19:...",
+        "61% Session_117 → SESSION_LOG.md — ## Session 117 (2026-05-06) **Opened:** 2026-05-06 12:...",
+        "76% commit-447fa8b → git-commits/commit-447fa8b.md — ## Message Add milestone AMA ceremony to SESSION_END.m..."
+      ],
+      "latency_ms": 1438
+    },
+    {
+      "query_id": "q10",
+      "query": "bias convergence red flag",
+      "matches": 0,
+      "total_patterns": 4,
+      "match_rate": 0,
+      "top_results": [
+        "69% Session_13 → SESSION_LOG.md — ## Session 13 (2026-04-20) **Opened:** 2026-04-20 14:1...",
+        "65% Session_110 → SESSION_LOG.md — ## Session 110 (2026-05-05) **Opened:** 2026-05-05 16:...",
+        "65% issue-44 → github-issues/issue-44.md — ## Description ## Source S7 vision dialogue (2026-04-1..."
+      ],
+      "latency_ms": -222
+    },
+    {
+      "query_id": "q11",
+      "query": "pre-commit hook incremental indexing",
+      "matches": 0,
+      "total_patterns": 3,
+      "match_rate": 0,
+      "top_results": [
+        "62% git-commits/commit-6cf1d2f.md — # Commit 6cf1d2f: Add direct statement to future Gordos...",
+        "62% git-commits/commit-a519a58.md — # Commit a519a58: S12 open marker: 2026-04-20 12:01:26...",
+        "62% git-commits/commit-514764e.md — # Commit 514764e: S194: EXPANSION_DRAFT — update state..."
+      ],
+      "latency_ms": 1441
+    },
+    {
+      "query_id": "q12",
+      "query": "JK dense reference cognitive style",
+      "matches": 0,
+      "total_patterns": 4,
+      "match_rate": 0,
+      "top_results": [
+        "63% Session_05 → SESSION_LOG.md — ## Session 5 (2026-04-19) **Opened:** 2026-04-19 00:32...",
+        "71% issue-52 → github-issues/issue-52.md — ## Description ## Source Emerged S8 2026-04-19 ~17:03...",
+        "65% issue-98 → github-issues/issue-98.md — ## Description At the end of S20, I asked Gordo for a..."
+      ],
+      "latency_ms": 1551
+    },
+    {
+      "query_id": "q13",
+      "query": "constitutional freeze mutual self-binding",
+      "matches": 1,
+      "total_patterns": 4,
+      "match_rate": 0.25,
+      "top_results": [
+        "76% issue-68 → github-issues/issue-68.md — ## Description ## Provenance Filed S14 2026-04-20 AES...",
+        "65% issue-92 → github-issues/issue-92.md — ## Description B4 close establishes authority-symmetry...",
+        "76% commit-35cc58d → git-commits/commit-35cc58d.md — ## Message S14 ARCHITECTURE_DRAFT v0.10: #64 B1 close..."
+      ],
+      "latency_ms": 1443
+    },
+    {
+      "query_id": "q14",
+      "query": "drafter easiest path collapse bias",
+      "matches": 1,
+      "total_patterns": 4,
+      "match_rate": 0.25,
+      "top_results": [
+        "73% Session_75 → SESSION_LOG.md — ## Session 75 (2026-04-30) **Opened:** 2026-04-30 16:4...",
+        "70% Session_107 → SESSION_LOG.md — ## Session 107 (2026-05-04 → 2026-05-05) **Opened:** 2...",
+        "67% commit-78a8da2 → git-commits/commit-78a8da2.md — ## Message S107 — #146 Round-1 FINDINGS drafter-synthe..."
+      ],
+      "latency_ms": 1469
+    },
+    {
+      "query_id": "q15",
+      "query": "how does Phase C work for T0 content",
+      "matches": 2,
+      "total_patterns": 4,
+      "match_rate": 0.5,
+      "top_results": [
+        "76% issue-120 → github-issues/issue-120.md — ## Description **— Gordo** *(via JK gh CLI; S40 2026-0...",
+        "72% issue-77 → github-issues/issue-77.md — ## Description **— Gordo** *(via JK gh CLI; S17 2026-0...",
+        "73% commit-e86213e → git-commits/commit-e86213e.md — ## Message S35 record-003 content + deliberation — Pha..."
+      ],
+      "latency_ms": 1608
+    },
+    {
+      "query_id": "q16",
+      "query": "umbrella projects scope narrow decision",
+      "matches": 3,
+      "total_patterns": 4,
+      "match_rate": 0.75,
+      "top_results": [
+        "75% issue-47 → github-issues/issue-47.md — ## Description ## Source Emerged S8 2026-04-19 ~15:14...",
+        "72% issue-65 → github-issues/issue-65.md — ## Description ## Context S12 2026-04-20 (12:54-13:07...",
+        "75% commit-b3a88ef → git-commits/commit-b3a88ef.md — ## Message S12 Phase B Pass 1 narrow-scope refactor: P..."
+      ],
+      "latency_ms": 1434
+    },
+    {
+      "query_id": "q17",
+      "query": "GPG key hygiene never sign as JK",
+      "matches": 1,
+      "total_patterns": 4,
+      "match_rate": 0.25,
+      "top_results": [
+        "72% issue-94 → github-issues/issue-94.md — ## Description Under MCAP, JK can sign attestations wi...",
+        "73% commit-7a3abb5 → git-commits/commit-7a3abb5.md — ## Message S60 record-007 Commit 2.5 — lock Transcript...",
+        "72% commit-a29b14f → git-commits/commit-a29b14f.md — ## Message S59 revert 8f18647: receipt-batch should be..."
+      ],
+      "latency_ms": 1481
+    },
+    {
+      "query_id": "q18",
+      "query": "compact single arc session rhythm",
+      "matches": 0,
+      "total_patterns": 4,
+      "match_rate": 0,
+      "top_results": [
+        "71% Session_85 → SESSION_LOG.md — ## Session 85 (2026-05-01) **Opened:** 2026-05-01 14:2...",
+        "69% Session_112 → SESSION_LOG.md — ## Session 112 (2026-05-05) **Opened:** 2026-05-05 18:...",
+        "68% commit-9179eca → git-commits/commit-9179eca.md — ## Message S81 EOS: close 2026-05-01 12:36:28 AEST + s..."
+      ],
+      "latency_ms": 1504
+    },
+    {
+      "query_id": "q19",
+      "query": "WWGD escalation grades within session",
+      "matches": 0,
+      "total_patterns": 4,
+      "match_rate": 0,
+      "top_results": [
+        "73% Session_98 → SESSION_LOG.md — ## Session 98 (2026-05-03) **Opened:** 2026-05-03 21:5...",
+        "71% Session_94 → SESSION_LOG.md — ## Session 94 (2026-05-02 → 2026-05-03) **Opened:** 20...",
+        "61% commit-d229b10 → git-commits/commit-d229b10.md — ## Message S172: BOS skill v2.1.0 -- hardened session..."
+      ],
+      "latency_ms": 1430
+    },
+    {
+      "query_id": "q20",
+      "query": "old laptop archaeology rescue mount",
+      "matches": 0,
+      "total_patterns": 4,
+      "match_rate": 0,
+      "top_results": [
+        "68% Session_06 → SESSION_LOG.md — ## Session 6 (2026-04-19) **Opened:** 2026-04-19 01:10...",
+        "78% issue-18 → github-issues/issue-18.md — ## Description Session 1 archaeology. Naming conversat...",
+        "65% commit-b84db2e → git-commits/commit-b84db2e.md — ## Message S59 panel-runner: drop qwen3 num_ctx 32768→..."
+      ],
+      "latency_ms": 1472
+    }
+  ]
+}
