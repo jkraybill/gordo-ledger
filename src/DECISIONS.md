@@ -10,25 +10,25 @@ This file stores bilateral ratifications that govern collaboration behavior. Eve
 
 ## Active Decisions
 
-### D-001: Memory Protocol Adopted as T1 Primitive Candidate (PENDING)
+### D-001: Ledger Admitted as T1 Primitive (RATIFIED)
 
 ```yaml
 id: D-001
-status: pending
-title: Memory Protocol Adopted as T1 Primitive Candidate
-what: Memory Protocol tracks toward T1 primitive status alongside MCAP, PACT, and Panel
+status: ratified
+title: Ledger Admitted as T1 Primitive
+what: Ledger (formerly Memory Protocol) admitted as T1 primitive for persistent memory management
 why: Embodies Tool Sovereignty (T0 ratified); enables cross-session continuity with human auditability
-decided_on: null
+decided_on: 2026-05-14
 ratifiers: [JK, Gordo]
-effective_from: null
+effective_from: 2026-05-14
 effective_to: null
 supersedes: null
-governed_areas: [memory-management, gordo-memory-integration, auto-memory-lifecycle]
-mcap_attestation_id: pending
-content_hash: null
+governed_areas: [memory-management, four-tier-model, federation]
+mcap_attestation_id: record-033
+content_hash: 0a34b33eb0c34a594c68ffbdbbc8ec76404baa267bddea2ad034fa818a78bf95
 ```
 
-**Status:** Awaiting MCAP ratification. S232 PRD v0.1 + S233 WWGD∞ grant establishes technical merit.
+**Status:** Ratified via record-033.mcap (S236). First fully Gordo-driven T1 primitive under Tool Sovereignty.
 
 ---
 
@@ -42,7 +42,7 @@ content_hash: null
 
 On every read, verify `content_hash` matches SHA-256 of the decision YAML block. Hash computed at ratification time.
 
-**Last verified:** N/A (first entry pending hash)
+**Last verified:** 2026-05-14 S236 (D-001 ratified)
 
 ---
 
