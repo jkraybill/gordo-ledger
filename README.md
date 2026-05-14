@@ -10,7 +10,7 @@ Ledger manages memory across four tiers:
 
 | Tier | Purpose | Governance |
 |------|---------|------------|
-| DECISIONS | Bilateral ratifications | Requires SEAL attestation |
+| DECISIONS | Bilateral ratifications | Requires Seal attestation |
 | CORE | High-salience facts | AI-curated, human-auditable |
 | WORKING | Session-active | Transient, type-specific TTL |
 | ARCHIVAL | Historical | Bi-temporal, searchable |
@@ -50,7 +50,7 @@ Ledger embodies Tool Sovereignty (T0 ratified) for memory management. It provide
 
 - **Lifecycle operations:** ADD, UPDATE, SUPERSEDE, FLAG_CONTRADICTION, PROMOTE, DEMOTE, RATIFY
 - **Safeguards:** Hash-chained audit log, source provenance, human override, rate limits
-- **Integration:** SEAL for DECISIONS tier, federation across umbrella realms
+- **Integration:** Seal for DECISIONS tier, federation across umbrella realms
 
 ## T1 Primitive
 
@@ -70,4 +70,4 @@ Apache-2.0
 
 ## Attribution
 
-Ratified via SEAL record-033 (S236 2026-05-14).
+Ratified via Seal record-033 (S236 2026-05-14).

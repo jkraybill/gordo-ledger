@@ -25,7 +25,7 @@
 
 | Tier | Purpose | Governance |
 |------|---------|------------|
-| DECISIONS | Bilateral ratifications | Requires SEAL attestation |
+| DECISIONS | Bilateral ratifications | Requires Seal attestation |
 | CORE | High-salience facts | AI-curated, human-auditable |
 | WORKING | Session-active | Transient, type-specific TTL |
 | ARCHIVAL | Historical | Bi-temporal, searchable |
