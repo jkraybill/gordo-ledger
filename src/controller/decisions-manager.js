@@ -131,7 +131,7 @@ class DecisionsManager {
       effective_to: null,
       supersedes: null,
       governed_areas,
-      mcap_attestation_id: 'pending',
+      seal_attestation_id: 'pending',
       content_hash: null,
     };
 
@@ -173,7 +173,7 @@ effective_from: ${decision.effective_from || 'null'}
 effective_to: ${decision.effective_to || 'null'}
 supersedes: ${decision.supersedes || 'null'}
 governed_areas: [${decision.governed_areas.join(', ')}]
-mcap_attestation_id: ${decision.mcap_attestation_id}
+seal_attestation_id: ${decision.seal_attestation_id}
 content_hash: ${decision.content_hash || 'null'}
 \`\`\``;
   }
@@ -181,7 +181,7 @@ content_hash: ${decision.content_hash || 'null'}
   /**
    * Ratify a decision (link to Seal record, compute hash)
    */
-  ratify(decisionId, mcapRecordId) {
+  ratify(decisionId, sealRecordId) {
     const content = fs.readFileSync(DECISIONS_FILE, 'utf8');
 
     // Find the decision block
@@ -207,7 +207,7 @@ content_hash: ${decision.content_hash || 'null'}
     parsed.status = 'active';
     parsed.decided_on = today;
     parsed.effective_from = today;
-    parsed.mcap_attestation_id = mcapRecordId;
+    parsed.seal_attestation_id = sealRecordId;
 
     // Compute content hash (before adding hash itself)
     const hashInput = Object.entries(parsed)
@@ -228,7 +228,7 @@ content_hash: ${decision.content_hash || 'null'}
     );
     updated = updated.replace(
       new RegExp(`\\*\\*Status:\\*\\* Awaiting Seal ratification\\.`),
-      `**Source:** Seal ${mcapRecordId}. Hash verified at ratification.`
+      `**Source:** Seal ${sealRecordId}. Hash verified at ratification.`
     );
 
     fs.writeFileSync(DECISIONS_FILE, updated);
@@ -240,10 +240,10 @@ content_hash: ${decision.content_hash || 'null'}
       tier_to: 'DECISIONS',
       actor: 'gordo',
       source_session: this._detectSession(),
-      reason: `Ratified via ${mcapRecordId}`,
+      reason: `Ratified via ${sealRecordId}`,
       diff: {
         status: ['pending', 'active'],
-        mcap_attestation_id: mcapRecordId,
+        seal_attestation_id: sealRecordId,
         content_hash: parsed.content_hash,
       },
     });
@@ -251,7 +251,7 @@ content_hash: ${decision.content_hash || 'null'}
     return {
       id: decisionId,
       status: 'active',
-      mcap_record: mcapRecordId,
+      seal_record: sealRecordId,
       content_hash: parsed.content_hash,
       message: 'Decision ratified and hash-verified.',
     };
@@ -351,7 +351,7 @@ content_hash: ${decision.content_hash || 'null'}
         id: d.id,
         title: d.title,
         decided_on: d.decided_on,
-        mcap: d.mcap_attestation_id,
+        seal: d.seal_attestation_id,
       })),
       superseded: this.decisions.superseded.length,
     };
@@ -397,7 +397,7 @@ if (require.main === module) {
         const result = manager.ratify(args[1], args[2]);
         console.log(JSON.stringify(result, null, 2));
       } else {
-        console.log('Usage: decisions-manager.js ratify <decision-id> <mcap-record-id>');
+        console.log('Usage: decisions-manager.js ratify <decision-id> <seal-record-id>');
       }
       break;
 

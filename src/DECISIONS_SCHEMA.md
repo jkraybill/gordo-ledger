@@ -34,7 +34,7 @@ supersedes: null  # or D-xxx if this replaces a prior decision
 governed_areas:
   - area-tag-1
   - area-tag-2
-mcap_attestation_id: record-xxx  # Link to Seal ratification record
+seal_attestation_id: record-xxx  # Link to Seal ratification record
 content_hash: sha256:abc123...  # Computed at ratification, verified on read
 ---
 
@@ -64,7 +64,7 @@ content_hash: sha256:abc123...  # Computed at ratification, verified on read
 | `effective_to` | date | No | When decision expires (null = active) |
 | `supersedes` | string | No | ID of decision this replaces |
 | `governed_areas` | array | Yes | Tags for what this governs |
-| `mcap_attestation_id` | string | Yes | Link to Seal record |
+| `seal_attestation_id` | string | Yes | Link to Seal record |
 | `content_hash` | string | Yes | SHA-256 of decision content |
 
 ## Integrity Verification
@@ -88,7 +88,7 @@ hash = SHA-256(content)
 
 ## Integration
 
-- **Seal:** Every entry requires `mcap_attestation_id`
+- **Seal:** Every entry requires `seal_attestation_id`
 - **CORE:** Decisions can govern CORE entries via `governed_by` field in CORE schema
 - **Audit log:** All operations logged
 

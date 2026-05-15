@@ -24,7 +24,7 @@ effective_from: 2026-05-14
 effective_to: null
 supersedes: null
 governed_areas: [memory-management, four-tier-model, federation]
-mcap_attestation_id: record-033
+seal_attestation_id: record-033
 content_hash: 0a34b33eb0c34a594c68ffbdbbc8ec76404baa267bddea2ad034fa818a78bf95
 ```
 

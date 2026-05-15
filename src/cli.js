@@ -462,7 +462,7 @@ Commands:
         const status = integrity?.hash_valid === null ? '⏳' :
                        integrity?.hash_valid ? '✓' : '✗';
         console.log(`${status} ${d.id}: ${d.title}`);
-        console.log(`  Seal: ${d.mcap}`);
+        console.log(`  Seal: ${d.seal}`);
       });
       break;
     }
