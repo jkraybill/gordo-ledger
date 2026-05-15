@@ -8,7 +8,7 @@
  *
  * Types:
  * - skill: Claude Code skills (from .claude/skills/)
- * - workflow: Multi-step processes (like MCAP ratification)
+ * - workflow: Multi-step processes (like Seal ratification)
  * - pattern: Repeated behavioral patterns (like compact-single-arc rhythm)
  * - heuristic: Decision rules (like "prefer X over Y when Z")
  *

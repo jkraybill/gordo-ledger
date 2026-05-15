@@ -3,12 +3,12 @@
 /**
  * DECISIONS Manager — Memory Protocol Phase 3
  *
- * Manages the DECISIONS tier with MCAP integration.
- * DECISIONS require bilateral MCAP attestation for entry.
+ * Manages the DECISIONS tier with Seal integration.
+ * DECISIONS require bilateral Seal attestation for entry.
  *
  * Workflow:
  * 1. Draft decision (pending)
- * 2. MCAP ratification ceremony
+ * 2. Seal ratification ceremony
  * 3. Compute content hash after ratification
  * 4. Promote to active
  *
@@ -142,7 +142,7 @@ class DecisionsManager {
     // Insert before "## Superseded Decisions"
     const updated = content.replace(
       '## Superseded Decisions',
-      `### ${id}: ${title} (PENDING)\n\n${newBlock}\n\n**Status:** Awaiting MCAP ratification.\n\n---\n\n## Superseded Decisions`
+      `### ${id}: ${title} (PENDING)\n\n${newBlock}\n\n**Status:** Awaiting Seal ratification.\n\n---\n\n## Superseded Decisions`
     );
 
     fs.writeFileSync(DECISIONS_FILE, updated);
@@ -157,7 +157,7 @@ class DecisionsManager {
       diff: { status: 'pending' },
     });
 
-    return { id, status: 'pending', message: 'Decision drafted. Requires MCAP ratification.' };
+    return { id, status: 'pending', message: 'Decision drafted. Requires Seal ratification.' };
   }
 
   _formatDecision(decision) {
@@ -179,7 +179,7 @@ content_hash: ${decision.content_hash || 'null'}
   }
 
   /**
-   * Ratify a decision (link to MCAP record, compute hash)
+   * Ratify a decision (link to Seal record, compute hash)
    */
   ratify(decisionId, mcapRecordId) {
     const content = fs.readFileSync(DECISIONS_FILE, 'utf8');
@@ -227,8 +227,8 @@ content_hash: ${decision.content_hash || 'null'}
       `### ${decisionId}: ${parsed.title}`
     );
     updated = updated.replace(
-      new RegExp(`\\*\\*Status:\\*\\* Awaiting MCAP ratification\\.`),
-      `**Source:** MCAP ${mcapRecordId}. Hash verified at ratification.`
+      new RegExp(`\\*\\*Status:\\*\\* Awaiting Seal ratification\\.`),
+      `**Source:** Seal ${mcapRecordId}. Hash verified at ratification.`
     );
 
     fs.writeFileSync(DECISIONS_FILE, updated);

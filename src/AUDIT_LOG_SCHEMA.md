@@ -71,7 +71,7 @@ JSONL (JSON Lines) — one JSON object per line, append-only.
 | PROMOTE | Memory moved to higher tier |
 | DEMOTE | Memory moved to lower tier |
 | FLAG_CONTRADICTION | Contradiction detected |
-| RATIFY | DECISIONS entry ratified via MCAP |
+| RATIFY | DECISIONS entry ratified via Seal |
 
 ## Hash Chain
 

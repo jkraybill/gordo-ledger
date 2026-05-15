@@ -4,7 +4,7 @@
 **Status:** Active
 **Integrity:** Hash-verified on read
 
-This file stores bilateral ratifications that govern collaboration behavior. Every entry here was explicitly agreed by both JK and Gordo via MCAP attestation. These memories never decay — they can only be superseded by new DECISIONS.
+This file stores bilateral ratifications that govern collaboration behavior. Every entry here was explicitly agreed by both JK and Gordo via Seal attestation. These memories never decay — they can only be superseded by new DECISIONS.
 
 ---
 

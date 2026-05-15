@@ -39,13 +39,13 @@ const UMBRELLA_REALMS = {
     tier: 'T1',
     description: 'Memory primitive',
   },
-  'mcap-protocol': {
-    path: path.join(process.env.HOME, 'mcap-protocol'),
+  'gordo-seal': {
+    path: path.join(process.env.HOME, 'gordo-seal'),
     tier: 'T1',
     description: 'Identity-verification primitive',
   },
-  'panel-protocol': {
-    path: path.join(process.env.HOME, 'panel-protocol'),
+  'gordo-roundtable': {
+    path: path.join(process.env.HOME, 'gordo-roundtable'),
     tier: 'T1',
     description: 'External-review primitive',
   },

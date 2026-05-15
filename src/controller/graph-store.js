@@ -12,7 +12,7 @@
  * - references: Citation or pointer
  * - depends_on: Functional dependency
  * - part_of: Hierarchical containment
- * - decided_by: MCAP/DECISIONS governance link
+ * - decided_by: Seal/DECISIONS governance link
  *
  * @author Gordo (AI participant)
  * @version 0.1.0
@@ -32,8 +32,8 @@ const ENTITY_PATTERNS = {
   issue: /#(\d+)\b/g,
   // Tier references
   tier: /\bT([012])\b/g,
-  // Protocol references
-  protocol: /\b(MCAP|PACT|Panel|UEP)\b/gi,
+  // Protocol references (includes both old and new names for historical search)
+  protocol: /\b(Seal|MCAP|PACT|Roundtable|Panel|Gate|UEP|Gauge|Ledger|Forge)\b/gi,
   // Memory IDs
   memory_id: /\b([CDWA]-[\w-]+)\b/g,
   // Concepts (capitalized multi-word phrases)
