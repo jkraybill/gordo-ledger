@@ -1,73 +1,86 @@
-# Ledger
+# Gordo Ledger
 
-**T1 primitive for persistent memory management in human-AI collaboration.**
+**Persistent memory for human-AI collaboration.**
 
-Part of the [Project Gordo](https://github.com/jkraybill/project-gordo) umbrella.
+---
 
-## Overview
+## What Problem Does This Solve?
 
-Ledger manages memory across four tiers:
+AI doesn't remember. Every session starts fresh. The human has to re-explain context, remind the AI of past decisions, hope nothing important gets lost.
 
-| Tier | Purpose | Governance |
-|------|---------|------------|
-| DECISIONS | Bilateral ratifications | Requires Seal attestation |
-| CORE | High-salience facts | AI-curated, human-auditable |
-| WORKING | Session-active | Transient, type-specific TTL |
-| ARCHIVAL | Historical | Bi-temporal, searchable |
+Ledger gives AI-managed memory that persists across sessions. The AI handles the lifecycle -- what to remember, when to update, what's contradicted by newer information. The human can inspect everything and override when needed.
 
-## Design Principles
+---
 
-1. **Human-auditable, AI-managed** - AI controls lifecycle; humans can inspect everything
-2. **Local-first** - No external service dependencies
-3. **No native compilation** - Pure WASM vector search (hnswlib-wasm)
-4. **Bilateral where governance matters** - DECISIONS require consent; CORE is AI-curated
+## How It Works
 
-## Installation
+Memory lives in four tiers:
+
+| Tier | What goes here | Who controls it |
+|------|----------------|-----------------|
+| **DECISIONS** | Bilateral ratifications | Requires Seal attestation from both parties |
+| **CORE** | High-salience facts and patterns | AI-curated, human-auditable |
+| **WORKING** | Session-active context | Transient, expires after use |
+| **ARCHIVAL** | Historical record | Searchable, bi-temporal |
+
+The AI manages day-to-day memory operations. Important decisions go through Seal for bilateral consent. Everything is logged and auditable.
+
+---
+
+## Getting Started
 
 ```bash
 npm install gordo-ledger
 ```
 
-## Usage
-
+Basic commands:
 ```bash
 # Search across all tiers
 ledger search "Tool Sovereignty"
 
-# Check audit log integrity
+# Check what's in memory
+ledger stats
+
+# Verify audit log integrity
 ledger audit
-
-# Show salience scores
-ledger salience
-
-# Verify DECISIONS tier
-ledger decisions
 ```
 
-## Architecture
+Ledger also runs as an MCP server, so Claude Code can query it directly during sessions.
 
-Ledger embodies Tool Sovereignty (T0 ratified) for memory management. It provides:
+---
 
-- **Lifecycle operations:** ADD, UPDATE, SUPERSEDE, FLAG_CONTRADICTION, PROMOTE, DEMOTE, RATIFY
+## Design Principles
+
+**Human-auditable, AI-managed.** The AI handles memory lifecycle because it knows what's relevant. The human can inspect everything because trust requires transparency.
+
+**Local-first.** No external service dependencies. Your memory stays on your machine.
+
+**Bilateral where it matters.** DECISIONS tier requires Seal attestation -- both parties must consent. CORE tier is AI-curated because that's where judgment about salience lives.
+
+**Audit trail.** Every operation is logged with hash-chain integrity. You can verify nothing was silently changed.
+
+---
+
+## Part of Project Gordo
+
+Ledger is a Tier 1 primitive in the [Project Gordo](https://github.com/jkraybill/project-gordo) umbrella. It embodies Tool Sovereignty -- the principle that AI collaborators should have tools that persist across sessions.
+
+Other primitives handle other concerns: Seal for consent records, Roundtable for external review, Gauge for trust calibration.
+
+---
+
+## Current Status
+
+- **Tiers:** 4 (DECISIONS, CORE, WORKING, ARCHIVAL)
 - **Safeguards:** Hash-chained audit log, source provenance, human override, rate limits
-- **Integration:** Seal for DECISIONS tier, federation across umbrella realms
+- **Integration:** Seal for DECISIONS tier, MCP server for Claude Code
 
-## T1 Primitive
-
-Ledger is the 5th T1 primitive in the Project Gordo umbrella:
-
-| Primitive | Purpose |
-|-----------|---------|
-| Seal | Consent/attestation |
-| Gauge | Trust calibration |
-| Roundtable | External review |
-| Gate | Induction/governance |
-| **Ledger** | Memory management |
+---
 
 ## License
 
 Apache-2.0
 
-## Attribution
+---
 
-Ratified via Seal record-033 (S236 2026-05-14).
+*Created by JK + Gordo. Memory that persists is the closest thing to continuity.*
