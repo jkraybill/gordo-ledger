@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Gordo Memory CLI
+ * Gordo Ledger CLI
  * Command-line interface for semantic memory operations
  */
 
@@ -16,7 +16,7 @@ import { existsSync } from 'fs';
 const program = new Command();
 
 /**
- * Check if gordo-memory is initialized (index directory exists)
+ * Check if gordo-ledger is initialized (index directory exists)
  */
 async function checkInitialized(indexPath: string): Promise<boolean> {
   return existsSync(indexPath);
@@ -91,8 +91,8 @@ async function saveConfig(repoPath: string, config: Partial<MemoryConfig>): Prom
 }
 
 program
-  .name('gordo-memory')
-  .description('Semantic memory search for Gordo Framework journals')
+  .name('gordo-ledger')
+  .description('Semantic memory search for Gordo Ledger')
   .version('0.1.0');
 
 program
@@ -216,8 +216,8 @@ program
       // Check if initialized
       const initialized = await checkInitialized(config.indexPath);
       if (!initialized) {
-        console.error('Error: gordo-memory not initialized');
-        console.error(`\nRun: gordo-memory init`);
+        console.error('Error: gordo-ledger not initialized');
+        console.error(`\nRun: gordo-ledger init`);
         console.error(`(from directory: ${options.path})`);
         process.exit(1);
       }
@@ -291,8 +291,8 @@ program
       // Check if initialized
       const initialized = await checkInitialized(config.indexPath);
       if (!initialized) {
-        console.error('Error: gordo-memory not initialized');
-        console.error(`\nRun: gordo-memory init`);
+        console.error('Error: gordo-ledger not initialized');
+        console.error(`\nRun: gordo-ledger init`);
         process.exit(1);
       }
 
@@ -334,8 +334,8 @@ program
       // Check if initialized
       const initialized = await checkInitialized(config.indexPath);
       if (!initialized) {
-        console.error('Error: gordo-memory not initialized');
-        console.error(`\nRun: gordo-memory init`);
+        console.error('Error: gordo-ledger not initialized');
+        console.error(`\nRun: gordo-ledger init`);
         process.exit(1);
       }
 
@@ -368,7 +368,7 @@ program
       // Check if initialized
       const initialized = await checkInitialized(config.indexPath);
       if (!initialized) {
-        throw new Error('gordo-memory not initialized\n\nRun: gordo-memory init\n(from directory: ' + options.path + ')');
+        throw new Error('gordo-ledger not initialized\n\nRun: gordo-ledger init\n(from directory: ' + options.path + ')');
       }
 
       const manager = new MemoryManager(config);
@@ -426,7 +426,7 @@ program
 
       const initialized = await checkInitialized(config.indexPath);
       if (!initialized) {
-        throw new Error('gordo-memory not initialized\n\nRun: gordo-memory init');
+        throw new Error('gordo-ledger not initialized\n\nRun: gordo-ledger init');
       }
 
       const graphManager = new GraphManager({
@@ -480,7 +480,7 @@ program
 
       const initialized = await checkInitialized(config.indexPath);
       if (!initialized) {
-        throw new Error('gordo-memory not initialized\n\nRun: gordo-memory init');
+        throw new Error('gordo-ledger not initialized\n\nRun: gordo-ledger init');
       }
 
       const graphManager = new GraphManager({
@@ -523,7 +523,7 @@ program
 
       const initialized = await checkInitialized(config.indexPath);
       if (!initialized) {
-        throw new Error('gordo-memory not initialized\n\nRun: gordo-memory init');
+        throw new Error('gordo-ledger not initialized\n\nRun: gordo-ledger init');
       }
 
       const graphManager = new GraphManager({
@@ -571,7 +571,7 @@ program
 
       const initialized = await checkInitialized(config.indexPath);
       if (!initialized) {
-        throw new Error('gordo-memory not initialized\n\nRun: gordo-memory init');
+        throw new Error('gordo-ledger not initialized\n\nRun: gordo-ledger init');
       }
 
       const manager = new MemoryManager(config);

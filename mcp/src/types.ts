@@ -1,5 +1,5 @@
 /**
- * Core types for gordo-memory MCP server
+ * Core types for gordo-ledger MCP server
  */
 
 export interface MemoryConfig {

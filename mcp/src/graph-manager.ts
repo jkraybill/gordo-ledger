@@ -1,6 +1,6 @@
 /**
  * Graph Manager - Orchestrates knowledge graph construction and queries
- * Part of gordo-memory MCP Server v0.7.0
+ * Part of gordo-ledger MCP Server v0.7.0
  */
 
 import { TinyGraph } from './graph/store.js';

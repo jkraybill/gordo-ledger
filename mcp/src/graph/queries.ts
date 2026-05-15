@@ -1,5 +1,5 @@
 // Graph Query Functions - High-level query interface
-// Part of gordo-memory MCP Server v0.7.0
+// Part of gordo-ledger MCP Server v0.7.0
 
 import { TinyGraph } from './store.js';
 import { Graph, GraphNode, SessionNode, PatternNode, DecisionNode, Path, GraphQueryOptions } from './types.js';

@@ -1,5 +1,5 @@
 // Knowledge Graph Types
-// Part of gordo-memory MCP Server v0.7.0
+// Part of gordo-ledger MCP Server v0.7.0
 // Implements relationship-aware memory system
 
 /**

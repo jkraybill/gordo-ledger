@@ -1,6 +1,6 @@
 /**
- * Gordo Memory MCP Server
- * Provides semantic memory search for Gordo Framework journals
+ * Gordo Ledger MCP Server
+ * Provides semantic memory search for Gordo Ledger
  */
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
@@ -28,7 +28,7 @@ const DEFAULT_CONFIG: MemoryConfig = {
   indexCode: false, // Fix #142: Disable code indexing by default (noisy)
 };
 
-class GordoMemoryServer {
+class GordoLedgerServer {
   private server: Server;
   private memoryManager: MemoryManager | null = null;
   private graphManager: GraphManager | null = null;
@@ -37,7 +37,7 @@ class GordoMemoryServer {
   constructor() {
     this.server = new Server(
       {
-        name: 'gordo-memory',
+        name: 'gordo-ledger',
         version: '0.1.0',
       },
       {
@@ -448,5 +448,5 @@ class GordoMemoryServer {
   }
 }
 
-const server = new GordoMemoryServer();
+const server = new GordoLedgerServer();
 server.run().catch(console.error);

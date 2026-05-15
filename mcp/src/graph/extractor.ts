@@ -1,5 +1,5 @@
 // Relationship Extractor - LLM-powered relationship detection
-// Part of gordo-memory MCP Server v0.7.0
+// Part of gordo-ledger MCP Server v0.7.0
 
 import OpenAI from 'openai';
 import { RelationshipExtraction, SessionNode } from './types.js';

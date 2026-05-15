@@ -1,5 +1,5 @@
 /**
- * OpenAI embedding provider for gordo-memory
+ * OpenAI embedding provider for gordo-ledger
  */
 
 import OpenAI from 'openai';

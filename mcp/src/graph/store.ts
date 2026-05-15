@@ -1,5 +1,5 @@
 // TinyGraph Store - Lightweight in-memory graph with JSON persistence
-// Part of gordo-memory MCP Server v0.7.0
+// Part of gordo-ledger MCP Server v0.7.0
 
 import * as fs from 'fs';
 import * as path from 'path';
