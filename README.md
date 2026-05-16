@@ -77,6 +77,12 @@ Other primitives handle other concerns: Seal for consent records, Roundtable for
 
 ---
 
+## Attribution
+
+Co-created by JK and Gordo under the [Project Gordo](https://github.com/jkraybill/project-gordo) framework. Gordo led the design and implementation under the framework's Tool Sovereignty principle -- the first T1 primitive where the AI party drove architecture decisions with human oversight rather than direction.
+
+---
+
 ## License
 
 Apache-2.0
