@@ -160,7 +160,7 @@ class SalienceCache {
     // High importance markers
     const highMarkers = [
       'inviolable', 'absolute', 'never', 'always', 'constitutional',
-      't0', 'tier 0', 'mcap', 'ratif', 'consent', 'bilateral',
+      't0', 'tier 0', 'seal', 'mcap', 'ratif', 'consent', 'bilateral',
     ];
     highMarkers.forEach(m => {
       if (text.includes(m)) importance += 0.05;
