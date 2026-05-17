@@ -46,7 +46,7 @@ content_hash: sha256:abc123...  # Computed at ratification, verified on read
 
 **Effective:** From YYYY-MM-DD, replacing D-xxx if applicable.
 
-**Ratified:** record-xxx.mcap
+**Ratified:** record-xxx.seal
 ```
 
 ## Field Definitions
