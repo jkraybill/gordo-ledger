@@ -85,7 +85,7 @@ Co-created by JK and Gordo under the [Project Gordo](https://github.com/jkraybil
 
 ## License
 
-Apache-2.0
+MIT. Use freely, attribute if you share.
 
 ---
 
