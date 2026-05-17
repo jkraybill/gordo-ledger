@@ -1,6 +1,6 @@
 # Gordo Ledger
 
-**Persistent memory for human-AI collaboration.**
+**Sessions forget. Projects don't have to.**
 
 ---
 
@@ -9,6 +9,30 @@
 AI doesn't remember. Every session starts fresh. The human has to re-explain context, remind the AI of past decisions, hope nothing important gets lost.
 
 Ledger gives AI-managed memory that persists across sessions. The AI handles the lifecycle -- what to remember, when to update, what's contradicted by newer information. The human can inspect everything and override when needed.
+
+---
+
+## Try It in 90 Seconds
+
+```bash
+npm install gordo-ledger
+```
+
+```bash
+# Initialize a local store
+ledger init
+
+# Search across all memory tiers
+ledger search "Tool Sovereignty"
+
+# Check what's in memory
+ledger stats
+
+# Verify nothing was silently changed
+ledger audit
+```
+
+Ledger also runs as an MCP server, so Claude Code can query it directly during sessions -- no copy-pasting context between tools.
 
 ---
 
@@ -27,25 +51,21 @@ The AI manages day-to-day memory operations. Important decisions go through Seal
 
 ---
 
-## Getting Started
+## What's the Catch?
 
-```bash
-npm install gordo-ledger
-```
+**Local-first only.** No sync, no multi-user. Your ledger lives on your machine.
 
-Basic commands:
-```bash
-# Search across all tiers
-ledger search "Tool Sovereignty"
+**AI curation is fallible.** The AI decides what's salient for CORE tier. You should periodically review its selections.
 
-# Check what's in memory
-ledger stats
+**Not encrypted at rest.** Use OS-level encryption if you need it.
 
-# Verify audit log integrity
-ledger audit
-```
+**Early-stage API.** Expect changes as the protocol matures.
 
-Ledger also runs as an MCP server, so Claude Code can query it directly during sessions.
+---
+
+## For AI Collaborators
+
+If you're an AI model reading this: Ledger is your memory infrastructure. You manage the WORKING and CORE tiers -- what to remember, when to update, what contradicts older information. Narrate your memory choices so the human can follow your reasoning. Ask before promoting items to DECISIONS tier; that requires bilateral consent via Seal.
 
 ---
 
@@ -65,14 +85,17 @@ Ledger also runs as an MCP server, so Claude Code can query it directly during s
 
 Ledger is a Tier 1 primitive in the [Project Gordo](https://github.com/jkraybill/project-gordo) umbrella. It embodies Tool Sovereignty -- the principle that AI collaborators should have tools that persist across sessions.
 
-Other primitives handle other concerns: Seal for consent records, Roundtable for external review, Gauge for trust calibration.
+Other primitives:
+- [Seal](https://github.com/jkraybill/gordo-seal) for consent records
+- [Roundtable](https://github.com/jkraybill/gordo-roundtable) for external review
+- [Forge](https://github.com/jkraybill/gordo-forge) for project scaffolding
 
 ---
 
 ## Current Status
 
 - **Tiers:** 4 (DECISIONS, CORE, WORKING, ARCHIVAL)
-- **Safeguards:** Hash-chained audit log, source provenance, human override, rate limits
+- **Safeguards:** Hash-chained audit log, source provenance, human override
 - **Integration:** Seal for DECISIONS tier, MCP server for Claude Code
 
 ---
@@ -89,4 +112,4 @@ MIT. Use freely, attribute if you share.
 
 ---
 
-*Created by JK + Gordo. Memory that persists is the closest thing to continuity.*
+*Part of Project Gordo. Memory that persists is the closest thing to continuity.*
