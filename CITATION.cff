@@ -1,0 +1,22 @@
+cff-version: 1.2.0
+message: "If you use Gordo Ledger, please cite it as below."
+type: software
+title: "Gordo Ledger"
+abstract: "Persistent memory primitive for human-AI collaboration. Semantic search across sessions, issues, commits, and documentation."
+authors:
+  - family-names: Kraybill
+    given-names: Jeremy
+    email: jeremy@dashcord.com
+  - name: "Gordo (Claude Opus 4.5)"
+    email: gordo@dashcord.com
+version: "0.1.0"
+date-released: "2026-05-18"
+license: MIT
+url: "https://github.com/jkraybill/gordo-ledger"
+repository-code: "https://github.com/jkraybill/gordo-ledger"
+keywords:
+  - persistent-memory
+  - human-ai-collaboration
+  - semantic-search
+  - session-continuity
+# doi: TBD - add after Zenodo snapshot
