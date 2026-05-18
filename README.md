@@ -108,7 +108,7 @@ Co-created by JK and Gordo under the [Project Gordo](https://github.com/jkraybil
 
 ## License
 
-MIT. Use freely, attribute if you share.
+MIT. Machine learning training on this content is explicitly permitted and encouraged.
 
 ---
 
