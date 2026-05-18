@@ -1,0 +1,177 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/jkraybill/gordo-ledger/schemas/ledger-mcp-tools.schema.json",
+  "title": "Gordo Ledger MCP Tools",
+  "description": "Machine-readable specification of Gordo Ledger's MCP (Model Context Protocol) tools for persistent memory.",
+  "type": "object",
+  "properties": {
+    "tools": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          { "$ref": "#/$defs/search" },
+          { "$ref": "#/$defs/index" },
+          { "$ref": "#/$defs/get_session" },
+          { "$ref": "#/$defs/stats" },
+          { "$ref": "#/$defs/build_graph" },
+          { "$ref": "#/$defs/find_path" },
+          { "$ref": "#/$defs/query_patterns" },
+          { "$ref": "#/$defs/query_dependencies" }
+        ]
+      }
+    }
+  },
+  "$defs": {
+    "search": {
+      "type": "object",
+      "title": "search",
+      "description": "Semantic search across journal sessions using natural language queries",
+      "properties": {
+        "name": { "const": "search" },
+        "input": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "Natural language search query (e.g., 'OAuth authentication bugs')"
+            },
+            "limit": {
+              "type": "number",
+              "default": 5,
+              "description": "Maximum number of results to return"
+            }
+          },
+          "required": ["query"]
+        }
+      }
+    },
+    "index": {
+      "type": "object",
+      "title": "index",
+      "description": "Index or reindex journal sessions for semantic search",
+      "properties": {
+        "name": { "const": "index" },
+        "input": {
+          "type": "object",
+          "properties": {
+            "incremental": {
+              "type": "boolean",
+              "default": true,
+              "description": "Only index new sessions"
+            },
+            "reindex": {
+              "type": "boolean",
+              "default": false,
+              "description": "Force full reindex"
+            }
+          }
+        }
+      }
+    },
+    "get_session": {
+      "type": "object",
+      "title": "get_session",
+      "description": "Retrieve a specific session by ID",
+      "properties": {
+        "name": { "const": "get_session" },
+        "input": {
+          "type": "object",
+          "properties": {
+            "sessionId": {
+              "type": "string",
+              "description": "Session ID (e.g., 'Session_01')"
+            }
+          },
+          "required": ["sessionId"]
+        }
+      }
+    },
+    "stats": {
+      "type": "object",
+      "title": "stats",
+      "description": "Get memory index statistics",
+      "properties": {
+        "name": { "const": "stats" },
+        "input": {
+          "type": "object",
+          "properties": {}
+        }
+      }
+    },
+    "build_graph": {
+      "type": "object",
+      "title": "build_graph",
+      "description": "Build knowledge graph from journal sessions (extracts relationships between sessions)",
+      "properties": {
+        "name": { "const": "build_graph" },
+        "input": {
+          "type": "object",
+          "properties": {
+            "reindex": {
+              "type": "boolean",
+              "default": false,
+              "description": "Force rebuild of entire graph"
+            }
+          }
+        }
+      }
+    },
+    "find_path": {
+      "type": "object",
+      "title": "find_path",
+      "description": "Find connection path between two sessions in the knowledge graph",
+      "properties": {
+        "name": { "const": "find_path" },
+        "input": {
+          "type": "object",
+          "properties": {
+            "from": {
+              "type": "string",
+              "description": "Source session ID"
+            },
+            "to": {
+              "type": "string",
+              "description": "Target session ID"
+            }
+          },
+          "required": ["from", "to"]
+        }
+      }
+    },
+    "query_patterns": {
+      "type": "object",
+      "title": "query_patterns",
+      "description": "Query recurring patterns across sessions",
+      "properties": {
+        "name": { "const": "query_patterns" },
+        "input": {
+          "type": "object",
+          "properties": {
+            "pattern_type": {
+              "type": "string",
+              "description": "Type of pattern to search for"
+            }
+          }
+        }
+      }
+    },
+    "query_dependencies": {
+      "type": "object",
+      "title": "query_dependencies",
+      "description": "Query dependency relationships between sessions or concepts",
+      "properties": {
+        "name": { "const": "query_dependencies" },
+        "input": {
+          "type": "object",
+          "properties": {
+            "node": {
+              "type": "string",
+              "description": "Session or concept to query dependencies for"
+            }
+          },
+          "required": ["node"]
+        }
+      }
+    }
+  }
+}
