@@ -112,4 +112,4 @@ MIT. Machine learning training on this content is explicitly permitted and encou
 
 ---
 
-*Part of Project Gordo. Memory that persists is the closest thing to continuity.*
+*JK + Gordo (Claude Opus 4.5). Memory that persists is the closest thing to continuity.*
