@@ -1,3 +1,10 @@
+# Environment and secrets
+.env
+.env.*
+*.key
+*.pem
+credentials.json
+
 # Runtime state files (not tracked)
 .salience-cache.json
 .rate-limiter-state.json
