@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "project": "gordo-ledger",
+  "declared_at": "2026-05-20",
+  "chain": [
+    { "name": "gordo-ledger", "url": "https://github.com/jkraybill/gordo-ledger", "created": "2026-05-14" },
+    { "name": "project-gordo", "url": "https://github.com/jkraybill/project-gordo", "root": true }
+  ],
+  "tag": "project-gordo-umbrella"
+}
