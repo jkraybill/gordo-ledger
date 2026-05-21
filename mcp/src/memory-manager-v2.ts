@@ -179,6 +179,22 @@ export class MemoryManager {
           lastProgressTime = now;
         }
       }
+
+      // Prune orphaned entries (files that were moved or deleted from disk)
+      const allIndexedDocs = this.indexer.getAllDocuments();
+      const currentFileIds = new Set(sessions.map(s => s.id));
+      let pruned = 0;
+
+      for (const doc of allIndexedDocs) {
+        if (!currentFileIds.has(doc.id)) {
+          await this.indexer.deleteDocument(doc.id);
+          pruned++;
+        }
+      }
+
+      if (pruned > 0) {
+        onProgress?.(pruned, pruned, `Pruned ${pruned} orphaned entries`);
+      }
     } else {
       // Full reindex
       toIndex.push(...sessions);

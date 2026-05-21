@@ -206,6 +206,64 @@ Test details extended with new EOS narrative content that did not exist at first
       expect(reloaded!.content).toContain('Newly added pattern');
     }, 60000);
 
+    // Orphan pruning: when files are moved or deleted, incremental indexing
+    // must remove the stale entries from the index. Pre-fix, orphaned entries
+    // persisted indefinitely because the indexer only checked disk→index, not
+    // index→disk. Fix: gordo-ledger#3
+    it('should prune orphaned entries when files are deleted (incremental)', async () => {
+      await manager.initialize();
+
+      // Create a journal with two sessions.
+      const twoSessionJournal = `# Session Journal
+
+## Session 1: First Session (2025-01-01)
+
+**Summary:** First session summary
+
+**Details:** First session details
+
+## Session 2: Second Session (2025-01-02)
+
+**Summary:** Second session summary
+
+**Details:** Second session details
+`;
+      await fs.writeFile(testJournalPath, twoSessionJournal);
+
+      // Index both sessions.
+      const initial = await manager.indexRepository(testRepoPath, false);
+      expect(initial.indexed).toBe(2);
+
+      // Verify both sessions exist in index.
+      const session1Before = await manager.getSession('Session_01');
+      const session2Before = await manager.getSession('Session_02');
+      expect(session1Before).not.toBeNull();
+      expect(session2Before).not.toBeNull();
+
+      // Delete the second session from the journal (simulating file deletion/move).
+      const oneSessionJournal = `# Session Journal
+
+## Session 1: First Session (2025-01-01)
+
+**Summary:** First session summary
+
+**Details:** First session details
+`;
+      await fs.writeFile(testJournalPath, oneSessionJournal);
+
+      // Incremental index should prune the orphaned Session_02.
+      const result = await manager.indexRepository(testRepoPath, true);
+      expect(result.skipped).toBe(1); // Session_01 unchanged
+
+      // Session_01 should still exist.
+      const session1After = await manager.getSession('Session_01');
+      expect(session1After).not.toBeNull();
+
+      // Session_02 should be pruned (orphan).
+      const session2After = await manager.getSession('Session_02');
+      expect(session2After).toBeNull();
+    }, 60000);
+
     // SESSION_LOG.md filename support: project-gordo-backchannel and other
     // adopters use SESSION_LOG.md instead of JOURNAL.md / GORDO_JOURNAL.md.
     // Pre-fix, the file-detection chain returned 'generic' for these repos and
