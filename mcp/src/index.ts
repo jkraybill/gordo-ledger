@@ -188,6 +188,32 @@ class GordoLedgerServer {
             },
           },
           {
+            name: 'topics',
+            description: 'Get common topics/patterns across the knowledge base',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                limit: {
+                  type: 'number',
+                  description: 'Number of topics to return (default: 15)',
+                },
+              },
+            },
+          },
+          {
+            name: 'references',
+            description: 'Get most referenced issues and sessions',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                limit: {
+                  type: 'number',
+                  description: 'Number of items to return (default: 10)',
+                },
+              },
+            },
+          },
+          {
             name: 'build_graph',
             description: 'Build knowledge graph from journal sessions (extracts relationships between sessions)',
             inputSchema: {
@@ -412,6 +438,56 @@ class GordoLedgerServer {
             return {
               content: [{ type: 'text', text: summary }],
             };
+          }
+
+          case 'topics': {
+            const { limit = 15 } = args as any;
+            const sessions = await manager.getAllSessions();
+
+            const patternCounts: Record<string, number> = {};
+            for (const s of sessions) {
+              for (const pattern of s.patterns || []) {
+                const normalized = pattern.toLowerCase().trim();
+                if (normalized.length > 2) {
+                  patternCounts[normalized] = (patternCounts[normalized] || 0) + 1;
+                }
+              }
+            }
+
+            const sorted = Object.entries(patternCounts)
+              .sort((a, b) => b[1] - a[1])
+              .slice(0, limit);
+
+            if (sorted.length === 0) {
+              return { content: [{ type: 'text', text: 'No topics found. Run extraction to generate topics.' }] };
+            }
+
+            const lines = sorted.map(([topic, count]) => `${count} × ${topic}`);
+            return { content: [{ type: 'text', text: `Common topics:\n${lines.join('\n')}` }] };
+          }
+
+          case 'references': {
+            const { limit = 10 } = args as any;
+            const sessions = await manager.getAllSessions();
+
+            const issueCounts: Record<string, number> = {};
+            for (const s of sessions) {
+              for (const issue of s.issues || []) {
+                const normalized = issue.replace(/^#/, '');
+                issueCounts[normalized] = (issueCounts[normalized] || 0) + 1;
+              }
+            }
+
+            const sorted = Object.entries(issueCounts)
+              .sort((a, b) => b[1] - a[1])
+              .slice(0, limit);
+
+            if (sorted.length === 0) {
+              return { content: [{ type: 'text', text: 'No references found.' }] };
+            }
+
+            const lines = sorted.map(([issue, count]) => `${count} × #${issue}`);
+            return { content: [{ type: 'text', text: `Most referenced issues:\n${lines.join('\n')}` }] };
           }
 
           case 'build_graph': {
