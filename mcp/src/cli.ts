@@ -213,6 +213,9 @@ program
   .option('-l, --limit <number>', 'Maximum results', '5')
   .option('-t, --threshold <number>', 'Similarity threshold (0-1)', '0.5')
   .option('-v, --verbose', 'Show verbose output with full summaries')
+  .option('--since <date>', 'Filter results after this date (YYYY-MM-DD)')
+  .option('--until <date>', 'Filter results before this date (YYYY-MM-DD)')
+  .option('--type <types>', 'Filter by content type (comma-separated: session,issue,commit,docs,conversation)')
   .action(async (query, options) => {
     try {
       const config = await loadConfig(options.path);
@@ -229,11 +232,28 @@ program
       const manager = new MemoryManager(config);
 
       const threshold = parseFloat(options.threshold);
-      const results = await manager.search({
+
+      // Build search options
+      const searchOpts: any = {
         query,
         limit: parseInt(options.limit),
         threshold,
-      });
+      };
+
+      // Date range filtering
+      if (options.since || options.until) {
+        searchOpts.dateRange = {
+          start: options.since || '1970-01-01',
+          end: options.until || '2099-12-31',
+        };
+      }
+
+      // Content type filtering
+      if (options.type) {
+        searchOpts.contentTypes = options.type.split(',').map((t: string) => t.trim());
+      }
+
+      const results = await manager.search(searchOpts);
 
       if (results.length === 0) {
         console.log('No results found. Try: -t 0.3');
