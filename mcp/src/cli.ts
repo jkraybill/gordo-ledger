@@ -490,8 +490,17 @@ program
       }
 
       // Extraction cache status
-      if (extractedCount > 0) {
-        console.log(`\nExtraction cache: ${extractedCount} entries (v${cache.version || 'unknown'})`);
+      const sessionCount = typeCounts['session'] || 0;
+      const conversationCount = typeCounts['conversation'] || 0;
+      if (extractedCount > 0 || sessionCount > 0) {
+        console.log('\nExtraction:');
+        console.log(`  Sessions: ${sessionCount}`);
+        console.log(`  Extracted: ${conversationCount} conversations`);
+        console.log(`  Cache: ${extractedCount} entries (v${cache.version || 'unknown'})`);
+        if (sessionCount > 0) {
+          const coverage = Math.round((conversationCount / sessionCount) * 100);
+          console.log(`  Coverage: ${coverage}%`);
+        }
       }
 
       // Index file size
