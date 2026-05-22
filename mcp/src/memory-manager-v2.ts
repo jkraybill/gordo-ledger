@@ -294,23 +294,43 @@ export class MemoryManager {
     const includeFullContent = options.includeFullContent ?? false;
     const maxLength = options.maxContentLength ?? 500;
 
-    const results: SearchResult[] = hnswResults.map((result, index) => {
+    // Default hierarchical boost multipliers (prioritize extracted conversations and sessions)
+    const defaultBoost = {
+      conversation: 2.5,
+      session: 2.0,
+      issue: 1.5,
+      commit: 1.2,
+      docs: 1.0,
+      code: 0.5,
+    };
+    const boost = { ...defaultBoost, ...this.config.hierarchicalBoost };
+
+    const results: SearchResult[] = hnswResults.map((result) => {
       const fullContent = result.content;
       const shouldTruncate = !includeFullContent && fullContent.length > maxLength;
 
+      // Apply hierarchical boost based on content type
+      const contentType = result.metadata.contentType as keyof typeof boost;
+      const boostMultiplier = boost[contentType] ?? 1.0;
+      const boostedSimilarity = Math.min(result.similarity * boostMultiplier, 1.0);
+
       return {
         sessionId: result.id,
-        similarity: result.similarity, // pre-boost hybrid score [0,1]
+        similarity: boostedSimilarity,
         content: shouldTruncate
           ? fullContent.substring(0, maxLength) + '...'
           : fullContent,
         contentTruncated: shouldTruncate,
         summary: result.metadata.summary,
         date: result.metadata.date,
-        rank: index + 1,
-        contentType: result.metadata.contentType,  // For filtering and display
+        rank: 0, // Will be set after sorting
+        contentType: result.metadata.contentType,
       };
     });
+
+    // Re-sort by boosted similarity and assign ranks
+    results.sort((a, b) => b.similarity - a.similarity);
+    results.forEach((r, i) => r.rank = i + 1);
 
     // Apply additional pattern filters (if needed)
     let filtered = results;
