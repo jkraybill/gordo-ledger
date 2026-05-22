@@ -695,6 +695,116 @@ program
   });
 
 program
+  .command('recent')
+  .description('Show recently indexed documents')
+  .option('-p, --path <path>', 'Repository path', process.cwd())
+  .option('-l, --limit <number>', 'Number of items to show', '10')
+  .action(async (options) => {
+    try {
+      const config = await loadConfig(options.path);
+      const indexPath = config.indexPath;
+
+      const initialized = await checkInitialized(indexPath);
+      if (!initialized) {
+        console.error('Error: gordo-ledger not initialized');
+        process.exit(1);
+      }
+
+      // Read metadata
+      const metadataPath = path.join(indexPath, 'metadata.json');
+      const metadata = JSON.parse(await fs.readFile(metadataPath, 'utf-8'));
+
+      // Sort by indexedAt descending
+      const docs = Object.entries(metadata.documents || {})
+        .map(([id, doc]: [string, any]) => ({
+          id,
+          indexedAt: doc.indexedAt || '',
+          contentType: doc.contentType || 'unknown',
+        }))
+        .filter(d => d.indexedAt)
+        .sort((a, b) => b.indexedAt.localeCompare(a.indexedAt))
+        .slice(0, parseInt(options.limit));
+
+      if (docs.length === 0) {
+        console.log('No recently indexed documents found.');
+        return;
+      }
+
+      console.log('Recently indexed:\n');
+      for (const doc of docs) {
+        const age = Date.now() - new Date(doc.indexedAt).getTime();
+        const ageStr = age < 60000 ? 'just now'
+          : age < 3600000 ? `${Math.round(age / 60000)}m ago`
+          : age < 86400000 ? `${Math.round(age / 3600000)}h ago`
+          : `${Math.round(age / 86400000)}d ago`;
+        console.log(`  [${doc.contentType}] ${doc.id} — ${ageStr}`);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('health')
+  .description('Check system health: embedding provider, index, extraction')
+  .option('-p, --path <path>', 'Repository path', process.cwd())
+  .action(async (options) => {
+    try {
+      const config = await loadConfig(options.path);
+      const checks: { name: string; status: string; detail?: string }[] = [];
+
+      // Check index exists
+      const initialized = await checkInitialized(config.indexPath);
+      checks.push({
+        name: 'Index',
+        status: initialized ? '✓' : '✗',
+        detail: initialized ? config.indexPath : 'Not initialized',
+      });
+
+      if (initialized) {
+        // Check embedding provider
+        const manager = new MemoryManager(config);
+        try {
+          await manager.search({ query: 'test', limit: 1, threshold: 0.1 });
+          checks.push({ name: 'Embeddings', status: '✓', detail: config.provider });
+        } catch (e: any) {
+          checks.push({ name: 'Embeddings', status: '✗', detail: e.message });
+        }
+
+        // Check document count
+        const stats = await manager.getStats();
+        checks.push({
+          name: 'Documents',
+          status: stats.totalIndexedDocuments > 0 ? '✓' : '⚠',
+          detail: `${stats.totalIndexedDocuments} indexed`,
+        });
+      }
+
+      // Check extraction availability
+      const { isExtractionAvailable } = await import('./parser/conversation-extractor.js');
+      const extractionOk = await isExtractionAvailable();
+      checks.push({
+        name: 'Extraction',
+        status: extractionOk ? '✓' : '⚠',
+        detail: extractionOk ? 'Python + httpx available' : 'Not available (optional)',
+      });
+
+      // Output
+      console.log('Gordo Ledger Health Check:\n');
+      for (const check of checks) {
+        console.log(`  ${check.status} ${check.name}: ${check.detail || ''}`);
+      }
+
+      const hasErrors = checks.some(c => c.status === '✗');
+      process.exit(hasErrors ? 1 : 0);
+    } catch (error) {
+      console.error('Health check failed:', error);
+      process.exit(1);
+    }
+  });
+
+program
   .command('delete')
   .description('Delete files from the index (for handling deleted files)')
   .argument('<files...>', 'File paths to remove from index')
