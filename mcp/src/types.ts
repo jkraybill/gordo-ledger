@@ -12,12 +12,15 @@ export interface MemoryConfig {
   openaiApiKey?: string;
   ollamaUrl?: string;
   hierarchicalBoost?: {
-    session?: number;   // Default: 2.0
-    issue?: number;     // Default: 1.5
-    commit?: number;    // Default: 1.2
-    docs?: number;      // Default: 1.0
-    code?: number;      // Default: 0.5
+    session?: number;       // Default: 2.0
+    issue?: number;         // Default: 1.5
+    commit?: number;        // Default: 1.2
+    docs?: number;          // Default: 1.0
+    code?: number;          // Default: 0.5
+    conversation?: number;  // Default: 2.5 - extracted episodes/facts rank highest
   };
+  // Conversation extraction (EverMemOS integration)
+  extractConversations?: boolean;  // Default: false - Extract episodes/facts from sessions
   // Fix #139: Selective indexing controls
   indexDocs?: boolean;  // Default: true - Index documentation files (.md, .txt, etc.)
   indexCode?: boolean;  // Default: false - Index code files (.ts, .js, .py, etc.)
@@ -29,7 +32,7 @@ export interface MemoryConfig {
 
 export interface SessionEntry {
   id: string;              // e.g., "Session_01", "issue-123", "commit-abc1234"
-  contentType?: 'session' | 'issue' | 'commit' | 'code' | 'docs';  // For hierarchical weighting (#138)
+  contentType?: 'session' | 'issue' | 'commit' | 'code' | 'docs' | 'conversation';  // conversation = extracted episodes+facts (#4)
   date: string;            // ISO date
   content: string;         // Full session content
   summary?: string;        // Brief summary

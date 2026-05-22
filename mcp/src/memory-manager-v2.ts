@@ -12,6 +12,7 @@ import type {
 import { createJournalParser } from './parser/journal-parser-v2.js';
 import { parseGenericFiles, setJournalParsingFailed } from './parser/generic-file-parser.js';
 import { parseIssuesAndCommits } from './parser/issue-commit-parser.js';
+import { extractConversations, isExtractionAvailable } from './parser/conversation-extractor.js';
 import { createEmbeddingProvider, type EmbeddingConfig } from './embeddings/provider.js';
 import { createHNSWIndexer, type HNSWConfig } from './indexer/hnsw-indexer.js';
 import * as fs from 'fs/promises';
@@ -134,6 +135,19 @@ export class MemoryManager {
       onProgress?.(0, 0, 'Indexing documentation and code...');
       const genericFiles = await parseGenericFiles(repoPath, this.config);
       sessions = [...sessions, ...genericFiles];
+    }
+
+    // Fix #4: EverMemOS conversation extraction - extract episodes and atomic facts
+    // from session content for improved conversational memory retrieval.
+    if (this.config.extractConversations) {
+      const extractionAvailable = await isExtractionAvailable();
+      if (extractionAvailable) {
+        onProgress?.(0, 0, 'Extracting conversations...');
+        const extracted = await extractConversations(sessions, onProgress);
+        sessions = [...sessions, ...extracted];
+      } else {
+        console.warn('Conversation extraction requested but Python dependencies not available');
+      }
     }
 
     let indexed = 0;

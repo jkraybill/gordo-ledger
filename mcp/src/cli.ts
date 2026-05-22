@@ -137,6 +137,7 @@ program
   .option('--full', 'Force full reindex', false)
   .option('--provider <provider>', 'Embedding provider (ollama, openai, hybrid)')
   .option('--model <model>', 'Embedding model name')
+  .option('--extract', 'Extract conversations using EverMemOS (episodes + atomic facts)', false)
   .action(async (options) => {
     try {
       // Validate path exists
@@ -150,6 +151,9 @@ program
       }
       if (options.model) {
         config.model = options.model;
+      }
+      if (options.extract) {
+        config.extractConversations = true;
       }
 
       const manager = new MemoryManager(config);

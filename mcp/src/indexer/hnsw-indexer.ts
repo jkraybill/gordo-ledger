@@ -56,7 +56,7 @@ export interface SessionMetadata {
   wordCount: number;
   hasCode: boolean;
   hasLinks: boolean;
-  contentType?: 'session' | 'issue' | 'commit' | 'code' | 'docs';  // Fix #138
+  contentType?: 'session' | 'issue' | 'commit' | 'code' | 'docs' | 'conversation';  // Fix #138, #4
   // SHA-256 of session content. Used by incremental indexing to detect
   // content updates (e.g., EOS narrative appended to an existing session
   // entry) and trigger reindex. Optional for backward compat with indexes
@@ -529,20 +529,21 @@ export function createHNSWIndexer(config: HNSWConfig) {
   }
 
   /**
-   * Get hierarchical content type boost multiplier (Fix #138)
+   * Get hierarchical content type boost multiplier (Fix #138, #4)
    * Higher values rank content type higher in search results
    */
-  function getContentTypeBoost(contentType?: 'session' | 'issue' | 'commit' | 'code' | 'docs'): number {
+  function getContentTypeBoost(contentType?: 'session' | 'issue' | 'commit' | 'code' | 'docs' | 'conversation'): number {
     // Default boost multipliers (can be made configurable later)
-    const DEFAULT_BOOST = {
-      session: 2.0,  // Sessions are highest priority
-      issue: 1.5,    // Issues are high priority
-      commit: 1.2,   // Commits are medium-high priority
-      docs: 1.0,     // Docs are baseline
-      code: 0.5      // Code is lowest priority (noisy)
+    const DEFAULT_BOOST: Record<string, number> = {
+      conversation: 2.5,  // Extracted episodes/facts rank highest (#4)
+      session: 2.0,       // Sessions are high priority
+      issue: 1.5,         // Issues are high priority
+      commit: 1.2,        // Commits are medium-high priority
+      docs: 1.0,          // Docs are baseline
+      code: 0.5           // Code is lowest priority (noisy)
     };
 
-    return contentType ? DEFAULT_BOOST[contentType] : 1.0;
+    return contentType ? (DEFAULT_BOOST[contentType] ?? 1.0) : 1.0;
   }
 
   function updateBM25Index(id: string, content: string): void {
