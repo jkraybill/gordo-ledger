@@ -214,6 +214,24 @@ class GordoLedgerServer {
             },
           },
           {
+            name: 'context',
+            description: 'Find background/context documents for a topic. Returns older, foundational content.',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                topic: {
+                  type: 'string',
+                  description: 'Topic to find context for (e.g., "oauth", "deployment")',
+                },
+                limit: {
+                  type: 'number',
+                  description: 'Number of results (default: 5)',
+                },
+              },
+              required: ['topic'],
+            },
+          },
+          {
             name: 'build_graph',
             description: 'Build knowledge graph from journal sessions (extracts relationships between sessions)',
             inputSchema: {
@@ -488,6 +506,36 @@ class GordoLedgerServer {
 
             const lines = sorted.map(([issue, count]) => `${count} × #${issue}`);
             return { content: [{ type: 'text', text: `Most referenced issues:\n${lines.join('\n')}` }] };
+          }
+
+          case 'context': {
+            const { topic, limit = 5 } = args as any;
+
+            // Search for the topic but prioritize older documents (context/background)
+            const results = await manager.search({
+              query: topic,
+              limit: limit * 3, // Get more, then filter
+              threshold: 0.3,
+            });
+
+            // Sort by date ascending (oldest first) to get foundational context
+            const sorted = results
+              .sort((a, b) => (a.date || '').localeCompare(b.date || ''))
+              .slice(0, limit);
+
+            if (sorted.length === 0) {
+              return { content: [{ type: 'text', text: `No context found for "${topic}"` }] };
+            }
+
+            const lines = sorted.map(r => {
+              const pct = Math.round(r.similarity * 100);
+              const preview = r.content.replace(/\s+/g, ' ').substring(0, 80);
+              return `[${r.date}] ${pct}% ${r.sessionId} — ${preview}`;
+            });
+
+            return {
+              content: [{ type: 'text', text: `Context for "${topic}" (oldest first):\n${lines.join('\n')}` }],
+            };
           }
 
           case 'build_graph': {
