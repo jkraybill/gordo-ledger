@@ -306,7 +306,8 @@ export class MemoryManager {
         contentTruncated: shouldTruncate,
         summary: result.metadata.summary,
         date: result.metadata.date,
-        rank: index + 1
+        rank: index + 1,
+        contentType: result.metadata.contentType,  // For filtering and display
       };
     });
 
@@ -326,6 +327,13 @@ export class MemoryManager {
         !options.excludePatterns!.some(pattern =>
           r.content.toLowerCase().includes(pattern.toLowerCase())
         )
+      );
+    }
+
+    // Content type filtering
+    if (options.contentTypes && options.contentTypes.length > 0) {
+      filtered = filtered.filter(r =>
+        options.contentTypes!.includes((r as any).contentType)
       );
     }
 

@@ -59,6 +59,7 @@ export interface SearchResult {
   summary?: string;
   date: string;
   rank: number;
+  contentType?: 'session' | 'issue' | 'commit' | 'code' | 'docs' | 'conversation';
 }
 
 export interface SearchOptions {
@@ -73,6 +74,7 @@ export interface SearchOptions {
   };
   includePatterns?: string[];
   excludePatterns?: string[];
+  contentTypes?: ('session' | 'issue' | 'commit' | 'code' | 'docs' | 'conversation')[];  // Filter by content type
 }
 
 export interface EmbeddingProvider {

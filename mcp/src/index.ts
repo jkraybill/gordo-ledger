@@ -131,6 +131,11 @@ class GordoLedgerServer {
                   type: 'number',
                   description: 'Maximum characters per result content (default: 500)',
                 },
+                contentTypes: {
+                  type: 'array',
+                  items: { type: 'string', enum: ['session', 'issue', 'commit', 'code', 'docs', 'conversation'] },
+                  description: 'Filter by content type (e.g., ["session", "conversation"])',
+                },
               },
               required: ['query'],
             },
@@ -250,7 +255,8 @@ class GordoLedgerServer {
               limit = 5,
               threshold = 0.5,
               includeFullContent = false,
-              maxContentLength = 500
+              maxContentLength = 500,
+              contentTypes
             } = args as any;
 
             const results = await manager.search({
@@ -258,7 +264,8 @@ class GordoLedgerServer {
               limit,
               threshold,
               includeFullContent,
-              maxContentLength
+              maxContentLength,
+              contentTypes
             });
 
             // Compact format: one line per result, optimized for LLM consumption
