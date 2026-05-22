@@ -715,6 +715,55 @@ program
   });
 
 program
+  .command('topics')
+  .description('Show common topics/patterns across the knowledge base')
+  .option('-p, --path <path>', 'Repository path', process.cwd())
+  .option('-l, --limit <number>', 'Number of topics to show', '20')
+  .action(async (options) => {
+    try {
+      const config = await loadConfig(options.path);
+
+      const initialized = await checkInitialized(config.indexPath);
+      if (!initialized) {
+        console.error('Error: gordo-ledger not initialized');
+        process.exit(1);
+      }
+
+      const manager = new MemoryManager(config);
+      const sessions = await manager.getAllSessions();
+
+      // Count patterns across all sessions
+      const patternCounts: Record<string, number> = {};
+      for (const s of sessions) {
+        for (const pattern of s.patterns || []) {
+          const normalized = pattern.toLowerCase().trim();
+          if (normalized.length > 2) {
+            patternCounts[normalized] = (patternCounts[normalized] || 0) + 1;
+          }
+        }
+      }
+
+      // Sort by frequency
+      const sorted = Object.entries(patternCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, parseInt(options.limit));
+
+      if (sorted.length === 0) {
+        console.log('No topics/patterns found. Run extraction to generate topics.');
+        return;
+      }
+
+      console.log('Common topics:\n');
+      for (const [topic, count] of sorted) {
+        console.log(`  ${count.toString().padStart(3)} × ${topic}`);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      process.exit(1);
+    }
+  });
+
+program
   .command('summarize')
   .description('Show a quick summary of the knowledge base')
   .option('-p, --path <path>', 'Repository path', process.cwd())
