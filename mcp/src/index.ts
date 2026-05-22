@@ -284,6 +284,19 @@ class GordoLedgerServer {
             },
           },
           {
+            name: 'digest',
+            description: 'Show daily digest of recent activity for catching up',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                days: {
+                  type: 'number',
+                  description: 'Number of days to show (default: 7)',
+                },
+              },
+            },
+          },
+          {
             name: 'handoffs',
             description: 'Find handoff items and open threads from recent sessions',
             inputSchema: {
@@ -709,6 +722,55 @@ class GordoLedgerServer {
                 type: 'text',
                 text: `Last ${days} days: ${recent.length} items (${typeSummary})\n\n${lines.join('\n')}`
               }],
+            };
+          }
+
+          case 'digest': {
+            const { days = 7 } = args as any;
+            const sessions = await manager.getAllSessions();
+
+            const cutoff = new Date();
+            cutoff.setDate(cutoff.getDate() - days);
+            const cutoffStr = cutoff.toISOString().split('T')[0];
+
+            // Filter and group by date
+            const byDate: Record<string, typeof sessions> = {};
+            for (const s of sessions) {
+              if (s.date >= cutoffStr) {
+                const date = s.date.split('T')[0];
+                if (!byDate[date]) byDate[date] = [];
+                byDate[date].push(s);
+              }
+            }
+
+            const dates = Object.keys(byDate).sort().reverse();
+            if (dates.length === 0) {
+              return { content: [{ type: 'text', text: `No activity in the last ${days} days` }] };
+            }
+
+            const lines: string[] = [];
+            for (const date of dates) {
+              const items = byDate[date];
+              const byType: Record<string, number> = {};
+              for (const item of items) {
+                const t = item.contentType || 'unknown';
+                byType[t] = (byType[t] || 0) + 1;
+              }
+              const typeSummary = Object.entries(byType).map(([t, c]) => `${t}:${c}`).join(' ');
+              lines.push(`\n${date} (${items.length} items: ${typeSummary})`);
+
+              for (const item of items.slice(0, 3)) {
+                const type = (item.contentType || '?')[0];
+                const preview = item.content.replace(/\s+/g, ' ').substring(0, 50);
+                lines.push(`  [${type}] ${item.id}: ${preview}...`);
+              }
+              if (items.length > 3) {
+                lines.push(`  ... and ${items.length - 3} more`);
+              }
+            }
+
+            return {
+              content: [{ type: 'text', text: `Daily digest (last ${days} days):${lines.join('\n')}` }],
             };
           }
 

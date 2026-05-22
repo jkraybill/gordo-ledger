@@ -1157,6 +1157,72 @@ program
   });
 
 program
+  .command('digest')
+  .description('Show daily digest of recent activity for catching up')
+  .option('-p, --path <path>', 'Repository path', process.cwd())
+  .option('-d, --days <number>', 'Number of days to show', '7')
+  .action(async (options) => {
+    try {
+      const config = await loadConfig(options.path);
+
+      const initialized = await checkInitialized(config.indexPath);
+      if (!initialized) {
+        console.error('Error: gordo-ledger not initialized');
+        process.exit(1);
+      }
+
+      const manager = new MemoryManager(config);
+      const sessions = await manager.getAllSessions();
+
+      const days = parseInt(options.days);
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - days);
+      const cutoffStr = cutoff.toISOString().split('T')[0];
+
+      // Filter and group by date
+      const byDate: Record<string, typeof sessions> = {};
+      for (const s of sessions) {
+        if (s.date >= cutoffStr) {
+          const date = s.date.split('T')[0];
+          if (!byDate[date]) byDate[date] = [];
+          byDate[date].push(s);
+        }
+      }
+
+      const dates = Object.keys(byDate).sort().reverse();
+      if (dates.length === 0) {
+        console.log(`No activity in the last ${days} days.`);
+        return;
+      }
+
+      console.log(`Activity digest (last ${days} days):\n`);
+      for (const date of dates) {
+        const items = byDate[date];
+        const byType: Record<string, number> = {};
+        for (const item of items) {
+          const t = item.contentType || 'unknown';
+          byType[t] = (byType[t] || 0) + 1;
+        }
+        const typeSummary = Object.entries(byType).map(([t, c]) => `${t}:${c}`).join(' ');
+        console.log(`\n${date} (${items.length} items: ${typeSummary})`);
+
+        // Show up to 5 items per day with brief preview
+        for (const item of items.slice(0, 5)) {
+          const type = (item.contentType || '?')[0];
+          const preview = item.content.replace(/\s+/g, ' ').substring(0, 50);
+          console.log(`  [${type}] ${item.id}: ${preview}...`);
+        }
+        if (items.length > 5) {
+          console.log(`  ... and ${items.length - 5} more`);
+        }
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      process.exit(1);
+    }
+  });
+
+program
   .command('handoffs')
   .description('Find handoff items and open threads from recent sessions')
   .option('-p, --path <path>', 'Repository path', process.cwd())
