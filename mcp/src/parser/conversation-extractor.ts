@@ -205,8 +205,9 @@ function extractionToEntry(
   original: SessionEntry,
   extraction: ExtractionResultV2
 ): SessionEntry {
-  // Use pre-formatted content from v2 extractor
-  const content = extraction.formatted_content;
+  // Combine formatted summary WITH original content for fact retrieval
+  // Fix: summaries alone lose specific facts (S18 benchmark: 50%→40%)
+  const content = `${extraction.formatted_content}\n\n---\n## Original Content\n${original.content}`;
 
   // Build summary from episode
   const summary = extraction.episode.summary || `Session ${extraction.metadata.session_number} summary`;
