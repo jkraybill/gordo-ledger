@@ -1156,4 +1156,51 @@ program
     }
   });
 
+program
+  .command('handoffs')
+  .description('Find handoff items and open threads from recent sessions')
+  .option('-p, --path <path>', 'Repository path', process.cwd())
+  .option('-n, --sessions <number>', 'Number of recent sessions to check', '10')
+  .action(async (options) => {
+    try {
+      const config = await loadConfig(options.path);
+
+      const initialized = await checkInitialized(config.indexPath);
+      if (!initialized) {
+        console.error('Error: gordo-ledger not initialized');
+        process.exit(1);
+      }
+
+      const manager = new MemoryManager(config);
+
+      const sessionCount = parseInt(options.sessions);
+      const results = await manager.search({
+        query: 'handoff next session todo open thread blocked pending follow-up',
+        limit: sessionCount * 3,
+        threshold: 0.25,
+        contentTypes: ['session', 'conversation'],
+      });
+
+      const handoffKeywords = ['handoff', 'next session', 'todo', 'blocked', 'pending', 'follow-up', 'open thread', 'continues', 'wip'];
+      const filtered = results.filter(r => {
+        const lower = r.content.toLowerCase();
+        return handoffKeywords.some(k => lower.includes(k));
+      }).slice(0, sessionCount);
+
+      if (filtered.length === 0) {
+        console.log('No explicit handoff items found in recent sessions.');
+        return;
+      }
+
+      console.log('Handoff items from recent sessions:\n');
+      for (const r of filtered) {
+        const preview = r.content.replace(/\s+/g, ' ').substring(0, 80);
+        console.log(`  ${r.date} ${r.sessionId}: ${preview}...`);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      process.exit(1);
+    }
+  });
+
 program.parse();
