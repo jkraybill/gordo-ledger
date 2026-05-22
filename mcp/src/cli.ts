@@ -302,7 +302,8 @@ program
           const pct = (result.similarity * 100).toFixed(0).padStart(2);
           const path = derivePath(result.sessionId);
           const pathHint = path ? ` → ${path}` : '';
-          const snippet = (result.content || result.summary || '')
+          // Prefer summary (abstract) over raw content for search results
+          const snippet = (result.summary || result.content || '')
             .substring(0, 55)
             .replace(/\n/g, ' ')
             .replace(/\s+/g, ' ')
@@ -404,7 +405,7 @@ program
       console.log(`Similar to ${sessionId}:\n`);
       filtered.forEach(r => {
         const pct = (r.similarity * 100).toFixed(0).padStart(2);
-        const snippet = (r.content || '').replace(/\s+/g, ' ').substring(0, 60);
+        const snippet = (r.summary || r.content || '').replace(/\s+/g, ' ').substring(0, 60);
         console.log(`${pct}% ${r.sessionId} — ${snippet}...`);
       });
     } catch (error) {

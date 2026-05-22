@@ -462,12 +462,15 @@ class GordoLedgerServer {
             const results = await manager.search(searchOpts);
 
             // Compact format: one line per result, optimized for LLM consumption
-            // Format: "77% issue-4 — content preview..."
+            // Format: "77% session-4 (2026-05-22) — Summary or preview..."
             const lines = results.map(r => {
               const pct = Math.round(r.similarity * 100);
-              // Collapse whitespace in content preview
-              const preview = r.content.replace(/\s+/g, ' ').substring(0, 120);
-              return `${pct}% ${r.sessionId} — ${preview}`;
+              const date = r.date ? ` (${r.date.split('T')[0]})` : '';
+              // Prefer summary if available, fall back to truncated content
+              const abstract = r.summary
+                ? r.summary.replace(/\s+/g, ' ').substring(0, 100)
+                : r.content.replace(/\s+/g, ' ').substring(0, 100);
+              return `${pct}% ${r.sessionId}${date} — ${abstract}`;
             });
 
             return {
@@ -929,8 +932,10 @@ class GordoLedgerServer {
 
             const lines = filtered.map(r => {
               const pct = Math.round(r.similarity * 100);
-              const preview = r.content.replace(/\s+/g, ' ').substring(0, 80);
-              return `${pct}% ${r.sessionId} — ${preview}`;
+              const abstract = r.summary
+                ? r.summary.replace(/\s+/g, ' ').substring(0, 80)
+                : r.content.replace(/\s+/g, ' ').substring(0, 80);
+              return `${pct}% ${r.sessionId} — ${abstract}`;
             });
 
             return {
