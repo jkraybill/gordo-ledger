@@ -193,6 +193,28 @@ class GordoLedgerServer {
             },
           },
           {
+            name: 'find_similar',
+            description: 'Find documents similar to a given session/document by ID',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                sessionId: {
+                  type: 'string',
+                  description: 'ID of the document to find similar items for',
+                },
+                limit: {
+                  type: 'number',
+                  description: 'Maximum similar documents to return (default: 5)',
+                },
+                excludeSelf: {
+                  type: 'boolean',
+                  description: 'Exclude the source document from results (default: true)',
+                },
+              },
+              required: ['sessionId'],
+            },
+          },
+          {
             name: 'query_patterns',
             description: 'Find sessions with a specific pattern (e.g., "oauth", "database", "deployment")',
             inputSchema: {
@@ -368,6 +390,42 @@ class GordoLedgerServer {
                   type: 'text',
                   text: `Built knowledge graph: ${result.nodesCreated} nodes, ${result.edgesCreated} edges`,
                 },
+              ],
+            };
+          }
+
+          case 'find_similar': {
+            const { sessionId, limit = 5, excludeSelf = true } = args as any;
+
+            // Get the source document
+            const sourceDoc = await manager.getSession(sessionId);
+            if (!sourceDoc) {
+              return {
+                content: [{ type: 'text', text: `Document not found: ${sessionId}` }],
+              };
+            }
+
+            // Search using the document's content as query
+            const results = await manager.search({
+              query: sourceDoc.content.substring(0, 2000), // Use first 2000 chars
+              limit: excludeSelf ? limit + 1 : limit,
+              threshold: 0.3,
+            });
+
+            // Filter out self if requested
+            const filtered = excludeSelf
+              ? results.filter(r => r.sessionId !== sessionId).slice(0, limit)
+              : results.slice(0, limit);
+
+            const lines = filtered.map(r => {
+              const pct = Math.round(r.similarity * 100);
+              const preview = r.content.replace(/\s+/g, ' ').substring(0, 80);
+              return `${pct}% ${r.sessionId} — ${preview}`;
+            });
+
+            return {
+              content: [
+                { type: 'text', text: `Similar to ${sessionId}:\n${lines.join('\n')}` },
               ],
             };
           }

@@ -343,6 +343,57 @@ program
   });
 
 program
+  .command('similar')
+  .description('Find documents similar to a given session/document')
+  .argument('<sessionId>', 'ID of the document to find similar items for')
+  .option('-p, --path <path>', 'Repository path', process.cwd())
+  .option('-l, --limit <number>', 'Maximum results', '5')
+  .action(async (sessionId, options) => {
+    try {
+      const config = await loadConfig(options.path);
+
+      const initialized = await checkInitialized(config.indexPath);
+      if (!initialized) {
+        console.error('Error: gordo-ledger not initialized');
+        process.exit(1);
+      }
+
+      const manager = new MemoryManager(config);
+
+      const sourceDoc = await manager.getSession(sessionId);
+      if (!sourceDoc) {
+        console.error(`Document not found: ${sessionId}`);
+        process.exit(1);
+      }
+
+      const limit = parseInt(options.limit);
+      const results = await manager.search({
+        query: sourceDoc.content.substring(0, 2000),
+        limit: limit + 1,
+        threshold: 0.3,
+      });
+
+      // Filter out self
+      const filtered = results.filter(r => r.sessionId !== sessionId).slice(0, limit);
+
+      if (filtered.length === 0) {
+        console.log('No similar documents found.');
+        return;
+      }
+
+      console.log(`Similar to ${sessionId}:\n`);
+      filtered.forEach(r => {
+        const pct = (r.similarity * 100).toFixed(0).padStart(2);
+        const snippet = (r.content || '').replace(/\s+/g, ' ').substring(0, 60);
+        console.log(`${pct}% ${r.sessionId} — ${snippet}...`);
+      });
+    } catch (error) {
+      console.error('Error:', error);
+      process.exit(1);
+    }
+  });
+
+program
   .command('stats')
   .description('Show memory index statistics with freshness and layer breakdown')
   .option('-p, --path <path>', 'Repository path', process.cwd())
