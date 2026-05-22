@@ -81,29 +81,33 @@ Return ONLY the JSON object, no other text.
 
 
 async def call_llm(prompt: str) -> str:
-    """Call LLM via OpenRouter (async)."""
+    """Call LLM via OpenRouter (async) with enforced timeout."""
     import httpx
 
     api_key = os.environ.get("OPENROUTER_API_KEY")
     if not api_key:
         raise ValueError("OPENROUTER_API_KEY environment variable required")
 
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            "https://openrouter.ai/api/v1/chat/completions",
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
-            },
-            json={
-                "model": "openai/gpt-4.1-mini",
-                "messages": [{"role": "user", "content": prompt}],
-                "temperature": 0.1,
-            },
-            timeout=120.0,
-        )
-        response.raise_for_status()
-        return response.json()["choices"][0]["message"]["content"]
+    async def do_request():
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                "https://openrouter.ai/api/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": "openai/gpt-4.1-mini",
+                    "messages": [{"role": "user", "content": prompt}],
+                    "temperature": 0.1,
+                },
+                timeout=90.0,  # httpx timeout
+            )
+            response.raise_for_status()
+            return response.json()["choices"][0]["message"]["content"]
+
+    # Enforce asyncio-level timeout as backup (bug fix: httpx timeout not always honored)
+    return await asyncio.wait_for(do_request(), timeout=120.0)
 
 
 def parse_json_response(response: str) -> dict:
