@@ -715,6 +715,65 @@ program
   });
 
 program
+  .command('timeline')
+  .description('Show activity distribution over time')
+  .option('-p, --path <path>', 'Repository path', process.cwd())
+  .option('--months <number>', 'Number of months to show', '6')
+  .action(async (options) => {
+    try {
+      const config = await loadConfig(options.path);
+
+      const initialized = await checkInitialized(config.indexPath);
+      if (!initialized) {
+        console.error('Error: gordo-ledger not initialized');
+        process.exit(1);
+      }
+
+      const manager = new MemoryManager(config);
+      const sessions = await manager.getAllSessions();
+
+      // Group by month
+      const monthCounts: Record<string, Record<string, number>> = {};
+      for (const s of sessions) {
+        if (!s.date) continue;
+        const month = s.date.substring(0, 7); // YYYY-MM
+        const type = s.contentType || 'unknown';
+        if (!monthCounts[month]) monthCounts[month] = {};
+        monthCounts[month][type] = (monthCounts[month][type] || 0) + 1;
+      }
+
+      // Get recent months
+      const months = Object.keys(monthCounts)
+        .sort()
+        .slice(-parseInt(options.months));
+
+      if (months.length === 0) {
+        console.log('No timeline data available.');
+        return;
+      }
+
+      console.log('Activity timeline:\n');
+      const maxTotal = Math.max(...months.map(m =>
+        Object.values(monthCounts[m]).reduce((a, b) => a + b, 0)
+      ));
+
+      for (const month of months) {
+        const counts = monthCounts[month];
+        const total = Object.values(counts).reduce((a, b) => a + b, 0);
+        const barLen = Math.round((total / maxTotal) * 30);
+        const bar = '█'.repeat(barLen) + '░'.repeat(30 - barLen);
+        const breakdown = Object.entries(counts)
+          .map(([t, c]) => `${t[0]}:${c}`)
+          .join(' ');
+        console.log(`${month} [${bar}] ${total.toString().padStart(4)} (${breakdown})`);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      process.exit(1);
+    }
+  });
+
+program
   .command('references')
   .description('Show issues and cross-references across sessions')
   .option('-p, --path <path>', 'Repository path', process.cwd())
