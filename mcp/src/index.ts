@@ -250,6 +250,23 @@ class GordoLedgerServer {
             },
           },
           {
+            name: 'decisions',
+            description: 'Find sessions containing key decisions, optionally filtered by topic',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                topic: {
+                  type: 'string',
+                  description: 'Optional topic to filter decisions (e.g., "auth", "architecture")',
+                },
+                limit: {
+                  type: 'number',
+                  description: 'Number of results (default: 10)',
+                },
+              },
+            },
+          },
+          {
             name: 'build_graph',
             description: 'Build knowledge graph from journal sessions (extracts relationships between sessions)',
             inputSchema: {
@@ -583,6 +600,42 @@ class GordoLedgerServer {
 
             return {
               content: [{ type: 'text', text: `History of "${topic}":\n${lines.join('\n')}` }],
+            };
+          }
+
+          case 'decisions': {
+            const { topic, limit = 10 } = args as any;
+
+            // Search for decision-related content
+            const query = topic
+              ? `${topic} decision ratified approved agreed`
+              : 'decision ratified approved agreed bilateral consensus';
+
+            const results = await manager.search({
+              query,
+              limit: limit * 2,
+              threshold: 0.3,
+            });
+
+            // Filter to those with decision indicators
+            const decisionKeywords = ['decision', 'ratif', 'approv', 'agreed', 'consensus', 'bilateral', 'wwgd'];
+            const filtered = results.filter(r => {
+              const lower = r.content.toLowerCase();
+              return decisionKeywords.some(k => lower.includes(k));
+            }).slice(0, limit);
+
+            if (filtered.length === 0) {
+              return { content: [{ type: 'text', text: topic ? `No decisions found for "${topic}"` : 'No decisions found' }] };
+            }
+
+            const lines = filtered.map(r => {
+              const preview = r.content.replace(/\s+/g, ' ').substring(0, 70);
+              return `${r.date} ${r.sessionId}: ${preview}...`;
+            });
+
+            const header = topic ? `Decisions about "${topic}"` : 'Recent decisions';
+            return {
+              content: [{ type: 'text', text: `${header}:\n${lines.join('\n')}` }],
             };
           }
 
