@@ -240,10 +240,23 @@ program
         return;
       }
 
+      // Layer distribution feedback (#1)
+      const layerCounts: Record<string, number> = {};
+      for (const r of results) {
+        const layer = (r as any).contentType || 'unknown';
+        layerCounts[layer] = (layerCounts[layer] || 0) + 1;
+      }
+      const layerSummary = Object.entries(layerCounts)
+        .sort((a, b) => b[1] - a[1])
+        .map(([k, v]) => `${k}: ${v}`)
+        .join(' | ');
+
       if (options.verbose) {
         // Verbose format (original)
+        console.log(`Layers: ${layerSummary}\n`);
         results.forEach((result, index) => {
-          console.log(`${index + 1}. ${result.sessionId} (${result.date})`);
+          const layer = (result as any).contentType || '';
+          console.log(`${index + 1}. [${layer}] ${result.sessionId} (${result.date})`);
           console.log(`   Similarity: ${(result.similarity * 100).toFixed(1)}%`);
           if (result.summary) {
             console.log(`   Summary: ${result.summary}`);
@@ -256,7 +269,7 @@ program
         });
       } else {
         // Compact format (default): one line per result with content snippet
-        // Derive source path from ID for direct file access (only show if different from ID)
+        // Show layer distribution at end
         const derivePath = (id: string): string | null => {
           if (id.includes('/')) return null; // ID is already the path
           if (id.startsWith('Session_')) return 'SESSION_LOG.md';
@@ -276,6 +289,8 @@ program
             .trim();
           console.log(`${pct}% ${result.sessionId}${pathHint} — ${snippet}...`);
         });
+        // Layer distribution (#1)
+        console.log(`\n(${layerSummary})`);
       }
     } catch (error) {
       console.error('Error:', error);
@@ -329,14 +344,15 @@ program
 
 program
   .command('stats')
-  .description('Show memory index statistics')
+  .description('Show memory index statistics with freshness and layer breakdown')
   .option('-p, --path <path>', 'Repository path', process.cwd())
   .action(async (options) => {
     try {
       const config = await loadConfig(options.path);
+      const indexPath = config.indexPath;
 
       // Check if initialized
-      const initialized = await checkInitialized(config.indexPath);
+      const initialized = await checkInitialized(indexPath);
       if (!initialized) {
         console.error('Error: gordo-ledger not initialized');
         console.error(`\nRun: gordo-ledger init`);
@@ -344,14 +360,77 @@ program
       }
 
       const manager = new MemoryManager(config);
-
       const stats = await manager.getStats();
 
-      console.log('Memory Index Statistics:');
-      console.log(`  Total indexed documents: ${stats.totalIndexedDocuments}`);
-      console.log(`  Provider: ${stats.provider}`);
-      console.log(`  Threshold: ${config.threshold.toFixed(2)} (default)`);
-      console.log(`  Index path: ${stats.indexPath}`);
+      // Read metadata for layer breakdown
+      const metadataPath = path.join(indexPath, 'metadata.json');
+      let metadata: any = { documents: {} };
+      try {
+        const content = await fs.readFile(metadataPath, 'utf-8');
+        metadata = JSON.parse(content);
+      } catch {
+        // No metadata yet
+      }
+
+      // Read extraction cache
+      const cachePath = path.join(indexPath, 'extraction-cache.json');
+      let cache: any = { entries: {} };
+      try {
+        const content = await fs.readFile(cachePath, 'utf-8');
+        cache = JSON.parse(content);
+      } catch {
+        // No cache yet
+      }
+
+      // Count by content type
+      const typeCounts: Record<string, number> = {};
+      let newestDate = '';
+      let oldestDate = '';
+      for (const doc of Object.values(metadata.documents || {}) as any[]) {
+        const type = doc.contentType || 'unknown';
+        typeCounts[type] = (typeCounts[type] || 0) + 1;
+        if (doc.indexedAt) {
+          if (!newestDate || doc.indexedAt > newestDate) newestDate = doc.indexedAt;
+          if (!oldestDate || doc.indexedAt < oldestDate) oldestDate = doc.indexedAt;
+        }
+      }
+
+      const extractedCount = Object.keys(cache.entries || {}).length;
+
+      console.log('=== Gordo Ledger Statistics ===\n');
+      console.log(`Index path: ${indexPath}`);
+      console.log(`Total indexed: ${stats.totalIndexedDocuments}`);
+      console.log(`Provider: ${stats.provider}`);
+
+      // Freshness indicator (#2)
+      if (newestDate) {
+        const age = Date.now() - new Date(newestDate).getTime();
+        const ageStr = age < 60000 ? 'just now'
+          : age < 3600000 ? `${Math.round(age / 60000)}m ago`
+          : age < 86400000 ? `${Math.round(age / 3600000)}h ago`
+          : `${Math.round(age / 86400000)}d ago`;
+        console.log(`Last indexed: ${ageStr}`);
+      }
+
+      // Layer breakdown
+      console.log('\nLayers:');
+      for (const [type, count] of Object.entries(typeCounts).sort((a, b) => b[1] - a[1])) {
+        console.log(`  ${type}: ${count}`);
+      }
+
+      // Extraction cache status
+      if (extractedCount > 0) {
+        console.log(`\nExtraction cache: ${extractedCount} entries (v${cache.version || 'unknown'})`);
+      }
+
+      // Index file size
+      const indexFile = path.join(indexPath, 'index.hnsw');
+      try {
+        const fileStat = await fs.stat(indexFile);
+        console.log(`Index size: ${(fileStat.size / 1024 / 1024).toFixed(2)} MB`);
+      } catch {
+        // Index file not found
+      }
     } catch (error) {
       console.error('Error:', error);
       process.exit(1);

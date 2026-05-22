@@ -139,12 +139,20 @@ export class MemoryManager {
 
     // Fix #4: EverMemOS conversation extraction - extract episodes and atomic facts
     // from session content for improved conversational memory retrieval.
+    // v2.2: Parallel batching + retry logic + incremental extraction cache.
     if (this.config.extractConversations) {
       const extractionAvailable = await isExtractionAvailable();
       if (extractionAvailable) {
         onProgress?.(0, 0, 'Extracting conversations...');
-        const extracted = await extractConversations(sessions, onProgress);
+        const { entries: extracted, stats } = await extractConversations(sessions, onProgress, {
+          batchSize: 15,
+          incremental,
+          repoPath,
+        });
         sessions = [...sessions, ...extracted];
+        if (stats.failed > 0) {
+          console.warn(`Extraction: ${stats.failed} items failed after retries`);
+        }
       } else {
         console.warn('Conversation extraction requested but Python dependencies not available');
       }

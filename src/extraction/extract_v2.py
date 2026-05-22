@@ -18,6 +18,7 @@ import os
 import json
 import re
 import argparse
+import asyncio
 from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
 
@@ -79,29 +80,30 @@ Return ONLY the JSON object, no other text.
 """
 
 
-def call_llm(prompt: str) -> str:
-    """Call LLM via OpenRouter."""
+async def call_llm(prompt: str) -> str:
+    """Call LLM via OpenRouter (async)."""
     import httpx
 
     api_key = os.environ.get("OPENROUTER_API_KEY")
     if not api_key:
         raise ValueError("OPENROUTER_API_KEY environment variable required")
 
-    response = httpx.post(
-        "https://openrouter.ai/api/v1/chat/completions",
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        },
-        json={
-            "model": "openai/gpt-4.1-mini",
-            "messages": [{"role": "user", "content": prompt}],
-            "temperature": 0.1,
-        },
-        timeout=120.0,
-    )
-    response.raise_for_status()
-    return response.json()["choices"][0]["message"]["content"]
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            "https://openrouter.ai/api/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": "openai/gpt-4.1-mini",
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": 0.1,
+            },
+            timeout=120.0,
+        )
+        response.raise_for_status()
+        return response.json()["choices"][0]["message"]["content"]
 
 
 def parse_json_response(response: str) -> dict:
@@ -151,7 +153,7 @@ def extract_metadata(text: str, session_id: str) -> Dict[str, Any]:
     return metadata
 
 
-def extract_episode_v2(text: str, timestamp: str) -> dict:
+async def extract_episode_v2(text: str, timestamp: str) -> dict:
     """Extract concise, search-optimized episode summary."""
     prompt = GORDO_EPISODE_PROMPT.format(
         timestamp=timestamp,
@@ -159,7 +161,7 @@ def extract_episode_v2(text: str, timestamp: str) -> dict:
     )
 
     try:
-        response = call_llm(prompt)
+        response = await call_llm(prompt)
         return parse_json_response(response)
     except Exception as e:
         return {
@@ -171,7 +173,7 @@ def extract_episode_v2(text: str, timestamp: str) -> dict:
         }
 
 
-def extract_facts_v2(text: str, timestamp: str) -> dict:
+async def extract_facts_v2(text: str, timestamp: str) -> dict:
     """Extract categorized facts for retrieval."""
     prompt = GORDO_FACTS_PROMPT.format(
         timestamp=timestamp,
@@ -179,7 +181,7 @@ def extract_facts_v2(text: str, timestamp: str) -> dict:
     )
 
     try:
-        response = call_llm(prompt)
+        response = await call_llm(prompt)
         facts = parse_json_response(response)
 
         # Supplement with regex extraction
@@ -286,15 +288,19 @@ def format_for_indexing(episode: dict, facts: dict, metadata: dict) -> str:
     return "\n".join(lines)
 
 
-def extract_conversation_v2(
+async def extract_conversation_v2(
     text: str,
     timestamp: str,
     session_id: Optional[str] = None,
 ) -> dict:
-    """Full v2 extraction pipeline."""
+    """Full v2 extraction pipeline (parallel episode + facts)."""
     metadata = extract_metadata(text, session_id or "unknown")
-    episode = extract_episode_v2(text, timestamp)
-    facts = extract_facts_v2(text, timestamp)
+
+    # Run episode and facts extraction in parallel (Level A optimization)
+    episode, facts = await asyncio.gather(
+        extract_episode_v2(text, timestamp),
+        extract_facts_v2(text, timestamp)
+    )
 
     # Format for indexing
     formatted_content = format_for_indexing(episode, facts, metadata)
@@ -305,19 +311,14 @@ def extract_conversation_v2(
         "metadata": {
             **metadata,
             "extracted_at": datetime.now(timezone.utc).isoformat(),
-            "extractor_version": "2.0.0",
+            "extractor_version": "2.1.0",  # Parallel extraction
         },
         "formatted_content": formatted_content,
     }
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Gordo-optimized conversation extraction v2")
-    parser.add_argument("--input", "-i", help="Input JSON file (or stdin if omitted)")
-    parser.add_argument("--output", "-o", help="Output JSON file (or stdout if omitted)")
-    parser.add_argument("--format-only", action="store_true", help="Output formatted content only")
-    args = parser.parse_args()
-
+async def async_main(args):
+    """Async entry point for extraction."""
     # Read input
     if args.input:
         with open(args.input) as f:
@@ -329,8 +330,8 @@ def main():
     timestamp = data.get("timestamp", datetime.now(timezone.utc).isoformat())
     session_id = data.get("session_id")
 
-    # Extract
-    result = extract_conversation_v2(text, timestamp, session_id)
+    # Extract (async)
+    result = await extract_conversation_v2(text, timestamp, session_id)
 
     # Output
     if args.format_only:
@@ -343,6 +344,16 @@ def main():
             f.write(output)
     else:
         print(output)
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Gordo-optimized conversation extraction v2.1 (parallel)")
+    parser.add_argument("--input", "-i", help="Input JSON file (or stdin if omitted)")
+    parser.add_argument("--output", "-o", help="Output JSON file (or stdout if omitted)")
+    parser.add_argument("--format-only", action="store_true", help="Output formatted content only")
+    args = parser.parse_args()
+
+    asyncio.run(async_main(args))
 
 
 if __name__ == "__main__":
