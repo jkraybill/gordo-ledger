@@ -292,6 +292,28 @@ class GordoLedgerServer {
             },
           },
           {
+            name: 'whats_new',
+            description: 'Show recent updates on a topic (last N days)',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                topic: {
+                  type: 'string',
+                  description: 'Topic to check for updates (e.g., "auth", "ledger")',
+                },
+                days: {
+                  type: 'number',
+                  description: 'Number of days to look back (default: 7)',
+                },
+                limit: {
+                  type: 'number',
+                  description: 'Maximum results (default: 10)',
+                },
+              },
+              required: ['topic'],
+            },
+          },
+          {
             name: 'digest',
             description: 'Show daily digest of recent activity for catching up',
             inputSchema: {
@@ -741,6 +763,41 @@ class GordoLedgerServer {
                 type: 'text',
                 text: `Last ${days} days: ${recent.length} items (${typeSummary})\n\n${lines.join('\n')}`
               }],
+            };
+          }
+
+          case 'whats_new': {
+            const { topic, days = 7, limit = 10 } = args as any;
+
+            const cutoff = new Date();
+            cutoff.setDate(cutoff.getDate() - days);
+            const cutoffStr = cutoff.toISOString().split('T')[0];
+
+            // Search for topic with date range
+            const results = await manager.search({
+              query: topic,
+              limit: limit * 2,
+              threshold: 0.3,
+              dateRange: { start: cutoffStr, end: '2100-12-31' }
+            });
+
+            // Sort by date descending (most recent first)
+            const sorted = results
+              .sort((a, b) => (b.date || '').localeCompare(a.date || ''))
+              .slice(0, limit);
+
+            if (sorted.length === 0) {
+              return { content: [{ type: 'text', text: `No updates on "${topic}" in the last ${days} days` }] };
+            }
+
+            const lines = sorted.map(r => {
+              const type = (r as any).contentType?.[0] || '?';
+              const preview = r.content.replace(/\s+/g, ' ').substring(0, 60);
+              return `${r.date} [${type}] ${r.sessionId}: ${preview}...`;
+            });
+
+            return {
+              content: [{ type: 'text', text: `Recent updates on "${topic}" (last ${days} days):\n${lines.join('\n')}` }],
             };
           }
 
