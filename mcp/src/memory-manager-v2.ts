@@ -373,16 +373,55 @@ export class MemoryManager {
     totalIndexedDocuments: number;
     indexPath: string;
     provider: string;
+    layerCounts?: Record<string, number>;
+    extractionCache?: { count: number; version: string };
+    lastIndexedAt?: string;
   }> {
     if (!this.initialized) {
       await this.initialize();
     }
 
-    return {
+    const baseStats = {
       totalIndexedDocuments: this.indexer.getCount(),
       indexPath: this.config.indexPath,
       provider: this.config.provider,
     };
+
+    // Try to add layer counts from metadata
+    try {
+      const metadataPath = path.join(this.config.indexPath, 'metadata.json');
+      const metadata = JSON.parse(await fs.readFile(metadataPath, 'utf-8'));
+      const layerCounts: Record<string, number> = {};
+      let lastIndexedAt = '';
+
+      for (const doc of Object.values(metadata.documents || {}) as any[]) {
+        const type = doc.contentType || 'unknown';
+        layerCounts[type] = (layerCounts[type] || 0) + 1;
+        if (doc.indexedAt && doc.indexedAt > lastIndexedAt) {
+          lastIndexedAt = doc.indexedAt;
+        }
+      }
+
+      Object.assign(baseStats, { layerCounts, lastIndexedAt: lastIndexedAt || undefined });
+    } catch {
+      // Metadata not available
+    }
+
+    // Try to add extraction cache info
+    try {
+      const cachePath = path.join(this.config.indexPath, 'extraction-cache.json');
+      const cache = JSON.parse(await fs.readFile(cachePath, 'utf-8'));
+      Object.assign(baseStats, {
+        extractionCache: {
+          count: Object.keys(cache.entries || {}).length,
+          version: cache.version || 'unknown',
+        },
+      });
+    } catch {
+      // Cache not available
+    }
+
+    return baseStats;
   }
 
   async getAllSessions(): Promise<SessionEntry[]> {
