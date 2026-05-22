@@ -180,6 +180,14 @@ class GordoLedgerServer {
             },
           },
           {
+            name: 'summarize',
+            description: 'Get a quick summary of the knowledge base (document counts, date range, content types)',
+            inputSchema: {
+              type: 'object',
+              properties: {},
+            },
+          },
+          {
             name: 'build_graph',
             description: 'Build knowledge graph from journal sessions (extracts relationships between sessions)',
             inputSchema: {
@@ -369,6 +377,40 @@ class GordoLedgerServer {
                   text: JSON.stringify(stats, null, 2),
                 },
               ],
+            };
+          }
+
+          case 'summarize': {
+            const stats = await manager.getStats();
+            const sessions = await manager.getAllSessions();
+
+            // Calculate summary
+            const typeCounts: Record<string, number> = {};
+            let earliest = '';
+            let latest = '';
+
+            for (const s of sessions) {
+              const type = s.contentType || 'unknown';
+              typeCounts[type] = (typeCounts[type] || 0) + 1;
+              if (s.date) {
+                if (!earliest || s.date < earliest) earliest = s.date;
+                if (!latest || s.date > latest) latest = s.date;
+              }
+            }
+
+            const typeList = Object.entries(typeCounts)
+              .sort((a, b) => b[1] - a[1])
+              .map(([t, c]) => `${t}: ${c}`)
+              .join(', ');
+
+            const summary = [
+              `Documents: ${stats.totalIndexedDocuments}`,
+              `Date range: ${earliest || 'N/A'} to ${latest || 'N/A'}`,
+              `Types: ${typeList}`,
+            ].join('\n');
+
+            return {
+              content: [{ type: 'text', text: summary }],
             };
           }
 

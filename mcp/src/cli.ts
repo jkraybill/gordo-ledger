@@ -715,6 +715,68 @@ program
   });
 
 program
+  .command('summarize')
+  .description('Show a quick summary of the knowledge base')
+  .option('-p, --path <path>', 'Repository path', process.cwd())
+  .action(async (options) => {
+    try {
+      const config = await loadConfig(options.path);
+      const indexPath = config.indexPath;
+
+      const initialized = await checkInitialized(indexPath);
+      if (!initialized) {
+        console.error('Error: gordo-ledger not initialized');
+        process.exit(1);
+      }
+
+      // Read metadata
+      const metadataPath = path.join(indexPath, 'metadata.json');
+      const metadata = JSON.parse(await fs.readFile(metadataPath, 'utf-8'));
+      const docs = Object.values(metadata.documents || {}) as any[];
+
+      // Calculate stats
+      const typeCounts: Record<string, number> = {};
+      let earliest = '';
+      let latest = '';
+      let totalSize = 0;
+
+      for (const doc of docs) {
+        const type = doc.contentType || 'unknown';
+        typeCounts[type] = (typeCounts[type] || 0) + 1;
+        if (doc.date) {
+          if (!earliest || doc.date < earliest) earliest = doc.date;
+          if (!latest || doc.date > latest) latest = doc.date;
+        }
+        totalSize += doc.contentLength || 0;
+      }
+
+      // Read extraction cache
+      let extractedCount = 0;
+      try {
+        const cachePath = path.join(indexPath, 'extraction-cache.json');
+        const cache = JSON.parse(await fs.readFile(cachePath, 'utf-8'));
+        extractedCount = Object.keys(cache.entries || {}).length;
+      } catch { /* no cache */ }
+
+      console.log('=== Knowledge Base Summary ===\n');
+      console.log(`Total documents: ${docs.length}`);
+      console.log(`Date range: ${earliest || 'N/A'} to ${latest || 'N/A'}`);
+      console.log(`Total content: ${(totalSize / 1024 / 1024).toFixed(2)} MB`);
+      if (extractedCount > 0) {
+        console.log(`Extracted: ${extractedCount} items`);
+      }
+      console.log('\nBy type:');
+      for (const [type, count] of Object.entries(typeCounts).sort((a, b) => b[1] - a[1])) {
+        const pct = ((count / docs.length) * 100).toFixed(0);
+        console.log(`  ${type}: ${count} (${pct}%)`);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      process.exit(1);
+    }
+  });
+
+program
   .command('export')
   .description('Export sessions to JSON or markdown')
   .option('-p, --path <path>', 'Repository path', process.cwd())
