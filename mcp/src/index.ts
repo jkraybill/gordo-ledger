@@ -136,6 +136,14 @@ class GordoLedgerServer {
                   items: { type: 'string', enum: ['session', 'issue', 'commit', 'code', 'docs', 'conversation'] },
                   description: 'Filter by content type (e.g., ["session", "conversation"])',
                 },
+                since: {
+                  type: 'string',
+                  description: 'Only include results from this date onwards (YYYY-MM-DD format)',
+                },
+                until: {
+                  type: 'string',
+                  description: 'Only include results up to this date (YYYY-MM-DD format)',
+                },
               },
               required: ['query'],
             },
@@ -408,17 +416,28 @@ class GordoLedgerServer {
               threshold = 0.5,
               includeFullContent = false,
               maxContentLength = 500,
-              contentTypes
+              contentTypes,
+              since,
+              until
             } = args as any;
 
-            const results = await manager.search({
+            const searchOpts: any = {
               query,
               limit,
               threshold,
               includeFullContent,
               maxContentLength,
               contentTypes
-            });
+            };
+
+            if (since || until) {
+              searchOpts.dateRange = {
+                start: since || '1900-01-01',
+                end: until || '2100-12-31'
+              };
+            }
+
+            const results = await manager.search(searchOpts);
 
             // Compact format: one line per result, optimized for LLM consumption
             // Format: "77% issue-4 — content preview..."
