@@ -715,6 +715,76 @@ program
   });
 
 program
+  .command('references')
+  .description('Show issues and cross-references across sessions')
+  .option('-p, --path <path>', 'Repository path', process.cwd())
+  .option('-l, --limit <number>', 'Number of items to show', '20')
+  .action(async (options) => {
+    try {
+      const config = await loadConfig(options.path);
+
+      const initialized = await checkInitialized(config.indexPath);
+      if (!initialized) {
+        console.error('Error: gordo-ledger not initialized');
+        process.exit(1);
+      }
+
+      const manager = new MemoryManager(config);
+      const sessions = await manager.getAllSessions();
+
+      // Count issue references
+      const issueCounts: Record<string, number> = {};
+      const sessionRefs: Record<string, number> = {};
+
+      for (const s of sessions) {
+        // Count issues
+        for (const issue of s.issues || []) {
+          const normalized = issue.replace(/^#/, '');
+          issueCounts[normalized] = (issueCounts[normalized] || 0) + 1;
+        }
+        // Count session references from metadata
+        const refs = s.metadata?.referencedSessions || [];
+        for (const ref of refs) {
+          sessionRefs[ref] = (sessionRefs[ref] || 0) + 1;
+        }
+      }
+
+      const limit = parseInt(options.limit);
+
+      // Show top issues
+      const topIssues = Object.entries(issueCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, limit);
+
+      if (topIssues.length > 0) {
+        console.log('Most referenced issues:\n');
+        for (const [issue, count] of topIssues) {
+          console.log(`  ${count.toString().padStart(3)} × #${issue}`);
+        }
+      }
+
+      // Show top session references
+      const topSessions = Object.entries(sessionRefs)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 10);
+
+      if (topSessions.length > 0) {
+        console.log('\nMost referenced sessions:\n');
+        for (const [sess, count] of topSessions) {
+          console.log(`  ${count.toString().padStart(3)} × S${sess}`);
+        }
+      }
+
+      if (topIssues.length === 0 && topSessions.length === 0) {
+        console.log('No references found. Run extraction to capture cross-references.');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      process.exit(1);
+    }
+  });
+
+program
   .command('topics')
   .description('Show common topics/patterns across the knowledge base')
   .option('-p, --path <path>', 'Repository path', process.cwd())
