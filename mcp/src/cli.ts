@@ -92,8 +92,8 @@ async function saveConfig(repoPath: string, config: Partial<MemoryConfig>): Prom
 
 program
   .name('gordo-ledger')
-  .description('Semantic memory search for Gordo Ledger')
-  .version('0.1.0');
+  .description('Semantic memory for Gordo umbrella projects')
+  .version('1.0.0-rc1');
 
 program
   .command('init')
