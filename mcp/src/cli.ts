@@ -715,6 +715,62 @@ program
   });
 
 program
+  .command('export')
+  .description('Export sessions to JSON or markdown')
+  .option('-p, --path <path>', 'Repository path', process.cwd())
+  .option('-o, --output <file>', 'Output file path')
+  .option('-f, --format <format>', 'Output format: json or markdown', 'json')
+  .option('--type <types>', 'Filter by content type (comma-separated)')
+  .option('--since <date>', 'Export items after date (YYYY-MM-DD)')
+  .action(async (options) => {
+    try {
+      const config = await loadConfig(options.path);
+
+      const initialized = await checkInitialized(config.indexPath);
+      if (!initialized) {
+        console.error('Error: gordo-ledger not initialized');
+        process.exit(1);
+      }
+
+      const manager = new MemoryManager(config);
+      let sessions = await manager.getAllSessions();
+
+      // Filter by type
+      if (options.type) {
+        const types = options.type.split(',').map((t: string) => t.trim());
+        sessions = sessions.filter(s => types.includes(s.contentType || 'unknown'));
+      }
+
+      // Filter by date
+      if (options.since) {
+        sessions = sessions.filter(s => s.date >= options.since);
+      }
+
+      // Sort by date
+      sessions.sort((a, b) => a.date.localeCompare(b.date));
+
+      let output: string;
+      if (options.format === 'markdown') {
+        output = sessions.map(s => {
+          return `# ${s.id}\n\n**Date:** ${s.date}\n\n${s.content}\n\n---\n`;
+        }).join('\n');
+      } else {
+        output = JSON.stringify(sessions, null, 2);
+      }
+
+      if (options.output) {
+        await fs.writeFile(options.output, output);
+        console.log(`Exported ${sessions.length} items to ${options.output}`);
+      } else {
+        console.log(output);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      process.exit(1);
+    }
+  });
+
+program
   .command('recent')
   .description('Show recently indexed documents')
   .option('-p, --path <path>', 'Repository path', process.cwd())
