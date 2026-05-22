@@ -267,6 +267,23 @@ class GordoLedgerServer {
             },
           },
           {
+            name: 'recent_activity',
+            description: 'Show recent activity across all content types',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                days: {
+                  type: 'number',
+                  description: 'Number of days to look back (default: 7)',
+                },
+                limit: {
+                  type: 'number',
+                  description: 'Maximum items to return (default: 20)',
+                },
+              },
+            },
+          },
+          {
             name: 'build_graph',
             description: 'Build knowledge graph from journal sessions (extracts relationships between sessions)',
             inputSchema: {
@@ -636,6 +653,49 @@ class GordoLedgerServer {
             const header = topic ? `Decisions about "${topic}"` : 'Recent decisions';
             return {
               content: [{ type: 'text', text: `${header}:\n${lines.join('\n')}` }],
+            };
+          }
+
+          case 'recent_activity': {
+            const { days = 7, limit = 20 } = args as any;
+            const sessions = await manager.getAllSessions();
+
+            const cutoff = new Date();
+            cutoff.setDate(cutoff.getDate() - days);
+            const cutoffStr = cutoff.toISOString().split('T')[0];
+
+            // Filter to recent and sort by date desc
+            const recent = sessions
+              .filter(s => s.date >= cutoffStr)
+              .sort((a, b) => b.date.localeCompare(a.date))
+              .slice(0, limit);
+
+            if (recent.length === 0) {
+              return { content: [{ type: 'text', text: `No activity in the last ${days} days` }] };
+            }
+
+            // Group by type
+            const byType: Record<string, number> = {};
+            for (const s of recent) {
+              const t = s.contentType || 'unknown';
+              byType[t] = (byType[t] || 0) + 1;
+            }
+
+            const typeSummary = Object.entries(byType)
+              .map(([t, c]) => `${t}: ${c}`)
+              .join(', ');
+
+            const lines = recent.slice(0, 10).map(s => {
+              const type = s.contentType?.[0] || '?';
+              const preview = s.content.replace(/\s+/g, ' ').substring(0, 50);
+              return `${s.date} [${type}] ${s.id}: ${preview}...`;
+            });
+
+            return {
+              content: [{
+                type: 'text',
+                text: `Last ${days} days: ${recent.length} items (${typeSummary})\n\n${lines.join('\n')}`
+              }],
             };
           }
 
