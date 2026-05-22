@@ -12,11 +12,45 @@ import { spawn } from 'child_process';
 import path from 'path';
 import type { SessionEntry } from '../types.js';
 
+// Use v2 extractor with Gordo-optimized prompts and structured output
 const EXTRACTOR_PATH = path.join(
   process.env.HOME || '/home/jk',
-  'gordo-ledger/src/extraction/extract.py'
+  'gordo-ledger/src/extraction/extract_v2.py'
 );
 
+// v2 extraction result structure
+interface ExtractionResultV2 {
+  episode: {
+    summary: string;
+    decisions: string[];
+    actions: string[];
+    patterns: string[];
+    topics: string[];
+  };
+  facts: {
+    who: string[];
+    what: string[];
+    decisions: string[];
+    references: {
+      sessions: string[];
+      issues: string[];
+      commits: string[];
+      files: string[];
+    };
+    handoff: string[];
+  };
+  metadata: {
+    session_id: string | null;
+    session_number: number | null;
+    duration_mentioned: string | null;
+    wwgd_max_level: string | null;
+    extracted_at: string;
+    extractor_version: string;
+  };
+  formatted_content: string;
+}
+
+// Keep old interface for backwards compatibility
 interface ExtractionResult {
   episode: {
     title: string;
@@ -34,13 +68,13 @@ interface ExtractionResult {
 }
 
 /**
- * Call the Python extractor for a single session.
+ * Call the Python v2 extractor for a single session.
  */
 async function extractSession(
   text: string,
   timestamp: string,
   sessionId?: string
-): Promise<ExtractionResult | null> {
+): Promise<ExtractionResultV2 | null> {
   return new Promise((resolve) => {
     const input = JSON.stringify({
       text,
@@ -91,39 +125,46 @@ async function extractSession(
 }
 
 /**
- * Transform extracted content into a SessionEntry for indexing.
- * Creates a 'conversation' type entry with the episode narrative
- * and atomic facts combined for searchability.
+ * Transform v2 extracted content into a SessionEntry for indexing.
+ * Uses pre-formatted content optimized for search with:
+ * - Concise summary
+ * - Categorized decisions/actions/patterns
+ * - Cross-references
  */
 function extractionToEntry(
   original: SessionEntry,
-  extraction: ExtractionResult
+  extraction: ExtractionResultV2
 ): SessionEntry {
-  // Combine episode + facts into searchable content
-  const factsText = extraction.atomic_facts.facts.length > 0
-    ? '\n\nAtomic Facts:\n' + extraction.atomic_facts.facts.map(f => `- ${f}`).join('\n')
-    : '';
+  // Use pre-formatted content from v2 extractor
+  const content = extraction.formatted_content;
 
-  const content = `# ${extraction.episode.title}
+  // Build summary from episode
+  const summary = extraction.episode.summary || `Session ${extraction.metadata.session_number} summary`;
 
-${extraction.episode.content}
-${factsText}`;
+  // Merge extracted issues with original
+  const extractedIssues = (extraction.facts.references?.issues || []).map(i => `#${i}`);
+  const allIssues = [...new Set([...(original.issues || []), ...extractedIssues])];
 
   return {
     id: `${original.id}_extracted`,
-    contentType: 'conversation' as any, // New type
+    contentType: 'conversation' as any,
     date: original.date,
     content,
-    summary: extraction.episode.title,
-    patterns: original.patterns,
-    issues: original.issues,
+    summary,
+    patterns: [...(original.patterns || []), ...(extraction.episode.patterns || [])],
+    issues: allIssues,
     signals: original.signals,
     metadata: {
       ...original.metadata,
       sourceSessionId: original.id,
+      sessionNumber: extraction.metadata.session_number,
+      wwgdMaxLevel: extraction.metadata.wwgd_max_level,
       extractedAt: extraction.metadata.extracted_at,
       extractorVersion: extraction.metadata.extractor_version,
-      atomicFactCount: extraction.atomic_facts.facts.length,
+      topics: extraction.episode.topics,
+      decisionCount: extraction.episode.decisions?.length || 0,
+      actionCount: extraction.episode.actions?.length || 0,
+      referencedSessions: extraction.facts.references?.sessions || [],
     },
   };
 }
@@ -133,13 +174,16 @@ ${factsText}`;
  * Returns new entries with contentType 'conversation' containing
  * structured episodes and atomic facts.
  *
- * Only processes entries with contentType 'session'.
+ * Processes entries with contentType 'session' or 'docs' (for conversational content).
+ * See issue #5 for future heuristic detection.
  */
 export async function extractConversations(
   sessions: SessionEntry[],
   onProgress?: (current: number, total: number, stage: string) => void
 ): Promise<SessionEntry[]> {
-  const sessionEntries = sessions.filter(s => s.contentType === 'session');
+  const sessionEntries = sessions.filter(s =>
+    s.contentType === 'session' || s.contentType === 'docs'
+  );
 
   if (sessionEntries.length === 0) {
     return [];
