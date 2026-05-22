@@ -232,6 +232,24 @@ class GordoLedgerServer {
             },
           },
           {
+            name: 'history',
+            description: 'Show how a topic evolved over time (chronological order)',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                topic: {
+                  type: 'string',
+                  description: 'Topic to trace history for',
+                },
+                limit: {
+                  type: 'number',
+                  description: 'Number of results (default: 10)',
+                },
+              },
+              required: ['topic'],
+            },
+          },
+          {
             name: 'build_graph',
             description: 'Build knowledge graph from journal sessions (extracts relationships between sessions)',
             inputSchema: {
@@ -535,6 +553,36 @@ class GordoLedgerServer {
 
             return {
               content: [{ type: 'text', text: `Context for "${topic}" (oldest first):\n${lines.join('\n')}` }],
+            };
+          }
+
+          case 'history': {
+            const { topic, limit = 10 } = args as any;
+
+            // Get all matching documents and sort chronologically
+            const results = await manager.search({
+              query: topic,
+              limit: limit * 2,
+              threshold: 0.35,
+            });
+
+            // Sort by date chronologically
+            const sorted = results
+              .sort((a, b) => (a.date || '').localeCompare(b.date || ''))
+              .slice(0, limit);
+
+            if (sorted.length === 0) {
+              return { content: [{ type: 'text', text: `No history found for "${topic}"` }] };
+            }
+
+            const lines = sorted.map(r => {
+              const type = (r as any).contentType?.[0] || '?';
+              const preview = r.content.replace(/\s+/g, ' ').substring(0, 60);
+              return `${r.date} [${type}] ${r.sessionId}: ${preview}...`;
+            });
+
+            return {
+              content: [{ type: 'text', text: `History of "${topic}":\n${lines.join('\n')}` }],
             };
           }
 
