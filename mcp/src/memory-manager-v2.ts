@@ -148,6 +148,7 @@ export class MemoryManager {
           batchSize: 15,
           incremental,
           repoPath,
+          contentTypes: this.config.extractContentTypes || ['session', 'docs'],
         });
         sessions = [...sessions, ...extracted];
         if (stats.failed > 0) {

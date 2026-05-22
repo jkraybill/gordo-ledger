@@ -256,13 +256,19 @@ export async function extractConversations(
     batchSize?: number;
     incremental?: boolean;
     repoPath?: string;
+    contentTypes?: string[];
   } = {}
 ): Promise<{ entries: SessionEntry[]; stats: ExtractionStats }> {
-  const { batchSize = 15, incremental = true, repoPath = process.cwd() } = options;
+  const {
+    batchSize = 15,
+    incremental = true,
+    repoPath = process.cwd(),
+    contentTypes = ['session', 'docs'],
+  } = options;
   const startTime = Date.now();
 
   const sessionEntries = sessions.filter(s =>
-    s.contentType === 'session' || s.contentType === 'docs'
+    contentTypes.includes(s.contentType || '')
   );
 
   if (sessionEntries.length === 0) {

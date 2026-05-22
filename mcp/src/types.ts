@@ -21,6 +21,7 @@ export interface MemoryConfig {
   };
   // Conversation extraction (EverMemOS integration)
   extractConversations?: boolean;  // Default: false - Extract episodes/facts from sessions
+  extractContentTypes?: string[];  // Default: ['session', 'docs'] - Which content types to extract from (#5)
   // Fix #139: Selective indexing controls
   indexDocs?: boolean;  // Default: true - Index documentation files (.md, .txt, etc.)
   indexCode?: boolean;  // Default: false - Index code files (.ts, .js, .py, etc.)
