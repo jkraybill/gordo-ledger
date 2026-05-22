@@ -284,6 +284,19 @@ class GordoLedgerServer {
             },
           },
           {
+            name: 'handoffs',
+            description: 'Find handoff items and open threads from recent sessions',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                sessions: {
+                  type: 'number',
+                  description: 'Number of recent sessions to check (default: 10)',
+                },
+              },
+            },
+          },
+          {
             name: 'build_graph',
             description: 'Build knowledge graph from journal sessions (extracts relationships between sessions)',
             inputSchema: {
@@ -696,6 +709,38 @@ class GordoLedgerServer {
                 type: 'text',
                 text: `Last ${days} days: ${recent.length} items (${typeSummary})\n\n${lines.join('\n')}`
               }],
+            };
+          }
+
+          case 'handoffs': {
+            const { sessions: sessionCount = 10 } = args as any;
+
+            // Search for handoff-related content in recent sessions
+            const results = await manager.search({
+              query: 'handoff next session todo open thread blocked pending follow-up',
+              limit: sessionCount * 3,
+              threshold: 0.25,
+              contentTypes: ['session', 'conversation'],
+            });
+
+            // Filter to those with handoff indicators
+            const handoffKeywords = ['handoff', 'next session', 'todo', 'blocked', 'pending', 'follow-up', 'open thread', 'continues', 'wip'];
+            const filtered = results.filter(r => {
+              const lower = r.content.toLowerCase();
+              return handoffKeywords.some(k => lower.includes(k));
+            }).slice(0, sessionCount);
+
+            if (filtered.length === 0) {
+              return { content: [{ type: 'text', text: 'No explicit handoff items found in recent sessions' }] };
+            }
+
+            const lines = filtered.map(r => {
+              const preview = r.content.replace(/\s+/g, ' ').substring(0, 100);
+              return `${r.date} ${r.sessionId}: ${preview}...`;
+            });
+
+            return {
+              content: [{ type: 'text', text: `Handoff items from recent sessions:\n${lines.join('\n')}` }],
             };
           }
 
