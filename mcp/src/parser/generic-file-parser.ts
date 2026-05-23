@@ -213,13 +213,27 @@ export async function discoverFiles(
       for (const entry of entries) {
         const fullPath = path.join(dir, entry.name);
 
-        if (entry.isDirectory()) {
+        // S337: Follow symlinks to determine actual type
+        let isDir = entry.isDirectory();
+        let isFile = entry.isFile();
+        if (entry.isSymbolicLink()) {
+          try {
+            const targetStats = await fs.stat(fullPath);
+            isDir = targetStats.isDirectory();
+            isFile = targetStats.isFile();
+          } catch {
+            // Broken symlink - skip
+            continue;
+          }
+        }
+
+        if (isDir) {
           // Skip ignored directories
           if (IGNORED_DIRS.has(entry.name)) {
             continue;
           }
           await walk(fullPath);
-        } else if (entry.isFile()) {
+        } else if (isFile) {
           // Check if file should be indexed
           if (shouldIndexFile(fullPath, rootPath, config)) {
             // Additional binary check for suspicious files
