@@ -286,17 +286,31 @@ export class MemoryManager {
       // (cheap). For legacy entries indexed before contentHash existed, fall back
       // to direct content compare so they don't all trigger spurious reindex on
       // the first post-upgrade run.
+      //
+      // S339 fix: Use getAllDocuments() once instead of N individual getDocument()
+      // calls. Each getDocument() call does fs.stat() for staleness check, which
+      // caused 336 file stats per commit (gordo-ledger#8).
       onProgress?.(0, sessions.length, 'Checking existing sessions...');
+
+      // Build lookup map from all indexed documents (synchronous, no staleness checks)
+      const allDocs = this.indexer.getAllDocuments();
+      const docMap = new Map<string, { contentHash?: string; content: string }>();
+      for (const doc of allDocs) {
+        docMap.set(doc.id, {
+          contentHash: doc.metadata.contentHash,
+          content: doc.text,
+        });
+      }
+
       let checked = 0;
       let lastProgressTime = Date.now();
       for (const session of sessions) {
-        const existing = await this.indexer.getDocument(session.id);
+        const existing = docMap.get(session.id);
         if (!existing) {
           toIndex.push(session);
         } else {
-          const existingHash = existing.metadata.contentHash;
-          const contentMatches = existingHash !== undefined
-            ? existingHash === computeContentHash(session.content)
+          const contentMatches = existing.contentHash !== undefined
+            ? existing.contentHash === computeContentHash(session.content)
             : existing.content === session.content;
 
           if (!contentMatches) {
@@ -317,19 +331,25 @@ export class MemoryManager {
       }
 
       // Prune orphaned entries (files that were moved or deleted from disk)
-      const allIndexedDocs = this.indexer.getAllDocuments();
-      const currentFileIds = new Set(sessions.map(s => s.id));
-      let pruned = 0;
+      // S339 fix: Only prune when doing a full parse (no changedCategories).
+      // When git-aware optimization is active, we only parsed changed categories,
+      // so we can't safely detect orphans in unparsed categories. Orphaned
+      // documents will be caught on the next full reindex.
+      if (!changedCategories) {
+        const allIndexedDocs = this.indexer.getAllDocuments();
+        const currentFileIds = new Set(sessions.map(s => s.id));
+        let pruned = 0;
 
-      for (const doc of allIndexedDocs) {
-        if (!currentFileIds.has(doc.id)) {
-          await this.indexer.deleteDocument(doc.id);
-          pruned++;
+        for (const doc of allIndexedDocs) {
+          if (!currentFileIds.has(doc.id)) {
+            await this.indexer.deleteDocument(doc.id);
+            pruned++;
+          }
         }
-      }
 
-      if (pruned > 0) {
-        onProgress?.(pruned, pruned, `Pruned ${pruned} orphaned entries`);
+        if (pruned > 0) {
+          onProgress?.(pruned, pruned, `Pruned ${pruned} orphaned entries`);
+        }
       }
     } else {
       // Full reindex

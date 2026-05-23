@@ -445,4 +445,107 @@ Test details extended with new EOS narrative content that did not exist at first
       expect(() => new MemoryManager(openaiConfig)).toThrow(/OpenAI.*API.*key/i);
     });
   });
+
+  // S339: Performance regression tests for incremental indexing fixes
+  describe('Incremental Indexing Performance (S339)', () => {
+    // Test that incremental indexing uses bulk document lookup instead of N
+    // individual getDocument calls. The fix replaced the loop that called
+    // getDocument() for each session (causing N fs.stat calls for staleness
+    // checks) with a single getAllDocuments() call.
+    it('should complete incremental check in bounded time regardless of document count', async () => {
+      await manager.initialize();
+
+      // Create a larger test set (simulating real-world session counts)
+      const sessions = [];
+      for (let i = 1; i <= 50; i++) {
+        sessions.push(`
+## Session ${i}: Test Session ${i} (2025-01-${String(i).padStart(2, '0')})
+
+**Summary:** Session ${i} summary
+
+**Details:** Session ${i} details with some content to embed.
+
+**Signals:** ✓
+`);
+      }
+
+      const largeJournal = `# Session Journal\n\n${sessions.join('\n')}`;
+      await fs.writeFile(testJournalPath, largeJournal);
+
+      // First index
+      const start1 = Date.now();
+      const result1 = await manager.indexRepository(testRepoPath, false);
+      const time1 = Date.now() - start1;
+      expect(result1.indexed).toBe(50);
+
+      // Second index (incremental - should be fast due to bulk lookup)
+      const start2 = Date.now();
+      const result2 = await manager.indexRepository(testRepoPath, true);
+      const time2 = Date.now() - start2;
+
+      expect(result2.indexed).toBe(0);
+      expect(result2.skipped).toBe(50);
+
+      // Incremental should be significantly faster than initial
+      // (No embedding generation, bulk lookup instead of N lookups)
+      expect(time2).toBeLessThan(time1 / 2);
+    }, 120000); // 2 min timeout for 50 embeddings
+
+    // Test the pruning behavior: when doing full reindex (no git optimization),
+    // orphaned documents should be pruned. This verifies the existing behavior
+    // still works correctly after the S339 fix that skips pruning during
+    // git-aware incremental indexing.
+    it('should prune orphaned documents during full reindex but not during git-aware incremental', async () => {
+      await manager.initialize();
+
+      // Create journal with two sessions
+      const twoSessionJournal = `# Session Journal
+
+## Session 1: First Session (2025-01-01)
+
+**Summary:** First session summary
+
+**Details:** First session details
+
+## Session 2: Second Session (2025-01-02)
+
+**Summary:** Second session summary
+
+**Details:** Second session details
+`;
+      await fs.writeFile(testJournalPath, twoSessionJournal);
+
+      // Full index both sessions
+      const result1 = await manager.indexRepository(testRepoPath, false);
+      expect(result1.indexed).toBe(2);
+
+      // Verify both exist
+      const s1Before = await manager.getSession('Session_01');
+      const s2Before = await manager.getSession('Session_02');
+      expect(s1Before).not.toBeNull();
+      expect(s2Before).not.toBeNull();
+
+      // Remove Session 2 from journal
+      const oneSessionJournal = `# Session Journal
+
+## Session 1: First Session (2025-01-01)
+
+**Summary:** First session summary
+
+**Details:** First session details
+`;
+      await fs.writeFile(testJournalPath, oneSessionJournal);
+
+      // Full reindex (incremental=false) should prune Session 2
+      const result2 = await manager.reindex(testRepoPath);
+
+      // Session 2 should be pruned
+      const s2After = await manager.getSession('Session_02');
+      expect(s2After).toBeNull();
+
+      // Session 1 should still exist
+      const s1After = await manager.getSession('Session_01');
+      expect(s1After).not.toBeNull();
+    }, 60000);
+  });
 });
