@@ -18,6 +18,7 @@ import { createHNSWIndexer, type HNSWConfig } from './indexer/hnsw-indexer.js';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { createHash } from 'crypto';
+import { execSync } from 'child_process';
 
 // Mirrors the per-document hash computed by the indexer's extractMetadata.
 // Used by incremental indexing to detect whether a document's content changed
@@ -25,6 +26,81 @@ import { createHash } from 'crypto';
 // indexer to compare correctly.
 function computeContentHash(content: string): string {
   return createHash('sha256').update(content || '').digest('hex');
+}
+
+// Git-aware incremental indexing helpers (S337 fix)
+interface ChangedCategories {
+  sessions: boolean;   // SESSION_LOG.md, GORDO_JOURNAL.md, JOURNAL.md, or sessions/ dir
+  issues: boolean;     // .gordo-memory/github-issues/*
+  commits: boolean;    // .gordo-memory/git-commits/*
+  docsCode: boolean;   // Any other files that might be docs/code
+  changedFiles: string[];  // For selective docs/code parsing
+}
+
+function getLastIndexedCommit(indexPath: string): string | null {
+  const markerPath = path.join(indexPath, 'last-indexed-commit');
+  try {
+    return require('fs').readFileSync(markerPath, 'utf-8').trim();
+  } catch {
+    return null;
+  }
+}
+
+function saveLastIndexedCommit(indexPath: string, commit: string): void {
+  const markerPath = path.join(indexPath, 'last-indexed-commit');
+  require('fs').writeFileSync(markerPath, commit);
+}
+
+function getCurrentCommit(repoPath: string): string | null {
+  try {
+    return execSync('git rev-parse HEAD', { cwd: repoPath, encoding: 'utf-8' }).trim();
+  } catch {
+    return null;
+  }
+}
+
+function getChangedFilesSince(repoPath: string, sinceCommit: string): string[] {
+  try {
+    const output = execSync(`git diff --name-only ${sinceCommit}..HEAD`, {
+      cwd: repoPath,
+      encoding: 'utf-8',
+    });
+    return output.split('\n').filter(f => f.trim());
+  } catch {
+    return [];
+  }
+}
+
+function categorizeChanges(changedFiles: string[]): ChangedCategories {
+  const result: ChangedCategories = {
+    sessions: false,
+    issues: false,
+    commits: false,
+    docsCode: false,
+    changedFiles,
+  };
+
+  for (const file of changedFiles) {
+    // Session files
+    if (file === 'SESSION_LOG.md' || file === 'GORDO_JOURNAL.md' || file === 'JOURNAL.md' ||
+        file.startsWith('sessions/')) {
+      result.sessions = true;
+    }
+    // Issue files
+    else if (file.startsWith('.gordo-memory/github-issues/')) {
+      result.issues = true;
+    }
+    // Commit files
+    else if (file.startsWith('.gordo-memory/git-commits/')) {
+      result.commits = true;
+    }
+    // Everything else is potentially docs/code
+    else if (!file.startsWith('.gordo-memory/')) {
+      result.docsCode = true;
+    }
+  }
+
+  return result;
 }
 
 export class MemoryManager {
@@ -78,40 +154,65 @@ export class MemoryManager {
       await this.initialize();
     }
 
+    // S337 fix: Git-aware incremental indexing
+    // Check what files changed since last index to avoid parsing unchanged content.
+    let changedCategories: ChangedCategories | null = null;
+    const currentCommit = getCurrentCommit(repoPath);
+
+    if (incremental && currentCommit) {
+      const lastCommit = getLastIndexedCommit(this.config.indexPath);
+      if (lastCommit && lastCommit !== currentCommit) {
+        const changedFiles = getChangedFilesSince(repoPath, lastCommit);
+        if (changedFiles.length === 0) {
+          // No files changed since last index - nothing to do
+          onProgress?.(0, 0, 'No changes since last index');
+          return { indexed: 0, skipped: 0 };
+        }
+        changedCategories = categorizeChanges(changedFiles);
+        const categories = [
+          changedCategories.sessions && 'sessions',
+          changedCategories.issues && 'issues',
+          changedCategories.commits && 'commits',
+          changedCategories.docsCode && 'docs/code',
+        ].filter(Boolean).join(', ');
+        onProgress?.(0, 0, `Changed: ${categories} (${changedFiles.length} files)`);
+      }
+    }
+
     // Auto-detect journal type and parse
     const journalType = await this.detectJournalType(repoPath);
-    let sessions: SessionEntry[];
+    let sessions: SessionEntry[] = [];
 
-    onProgress?.(0, 0, 'Parsing journal...');
+    // Only parse sessions if changed (or if no git tracking / full reindex)
+    if (!changedCategories || changedCategories.sessions) {
+      onProgress?.(0, 0, 'Parsing journal...');
 
-    if (journalType === 'hierarchical') {
-      const sessionsDir = path.join(repoPath, 'sessions');
-      sessions = await this.parser.parseHierarchicalStructure(sessionsDir);
-    } else if (journalType === 'flat') {
-      // Resolve the actual journal file. Order: GORDO_JOURNAL.md (Fix #136) →
-      // SESSION_LOG.md (project-gordo-backchannel and adopters using flat session log) →
-      // JOURNAL.md (legacy fallback).
-      const candidates = [
-        path.join(repoPath, 'GORDO_JOURNAL.md'),
-        path.join(repoPath, 'SESSION_LOG.md'),
-        path.join(repoPath, 'JOURNAL.md'),
-      ];
+      if (journalType === 'hierarchical') {
+        const sessionsDir = path.join(repoPath, 'sessions');
+        sessions = await this.parser.parseHierarchicalStructure(sessionsDir);
+      } else if (journalType === 'flat') {
+        // Resolve the actual journal file. Order: GORDO_JOURNAL.md (Fix #136) →
+        // SESSION_LOG.md (project-gordo-backchannel and adopters using flat session log) →
+        // JOURNAL.md (legacy fallback).
+        const candidates = [
+          path.join(repoPath, 'GORDO_JOURNAL.md'),
+          path.join(repoPath, 'SESSION_LOG.md'),
+          path.join(repoPath, 'JOURNAL.md'),
+        ];
 
-      let journalFilePath = candidates[candidates.length - 1]; // default to JOURNAL.md
-      for (const candidate of candidates) {
-        try {
-          await fs.access(candidate);
-          journalFilePath = candidate;
-          break;
-        } catch {
-          // try next
+        let journalFilePath = candidates[candidates.length - 1]; // default to JOURNAL.md
+        for (const candidate of candidates) {
+          try {
+            await fs.access(candidate);
+            journalFilePath = candidate;
+            break;
+          } catch {
+            // try next
+          }
         }
-      }
 
-      sessions = await this.parser.parseJournalFile(journalFilePath);
-    } else {
-      // No journal found
-      sessions = [];
+        sessions = await this.parser.parseJournalFile(journalFilePath);
+      }
     }
 
     // Fix F-004: If journal exists but parsing returned 0 sessions,
@@ -120,9 +221,12 @@ export class MemoryManager {
     setJournalParsingFailed(journalType === 'flat' && journalSessionCount === 0);
 
     // Fix #137: Three-Layer Memory - also index GitHub issues and git commits
-    onProgress?.(0, 0, 'Parsing issues and commits...');
-    const issuesAndCommits = await parseIssuesAndCommits(repoPath);
-    sessions = [...sessions, ...issuesAndCommits];
+    // Only parse if changed (or if no git tracking / full reindex)
+    if (!changedCategories || changedCategories.issues || changedCategories.commits) {
+      onProgress?.(0, 0, 'Parsing issues and commits...');
+      const issuesAndCommits = await parseIssuesAndCommits(repoPath);
+      sessions = [...sessions, ...issuesAndCommits];
+    }
 
     // Fix #142: Five-Layer Memory - index docs/code if enabled.
     // Outer-gate defaults match the per-file gate in generic-file-parser.ts:
@@ -131,7 +235,7 @@ export class MemoryManager {
     // config.json still get documentation indexing.
     const wantDocs = this.config.indexDocs ?? true;
     const wantCode = this.config.indexCode ?? false;
-    if (wantDocs || wantCode) {
+    if ((wantDocs || wantCode) && (!changedCategories || changedCategories.docsCode)) {
       onProgress?.(0, 0, 'Indexing documentation and code...');
       const genericFiles = await parseGenericFiles(repoPath, this.config);
       sessions = [...sessions, ...genericFiles];
@@ -224,6 +328,10 @@ export class MemoryManager {
     }
 
     if (toIndex.length === 0) {
+      // S337: Save commit marker even when nothing needed indexing
+      if (currentCommit) {
+        saveLastIndexedCommit(this.config.indexPath, currentCommit);
+      }
       return { indexed, skipped };
     }
 
@@ -258,6 +366,11 @@ export class MemoryManager {
       onProgress?.(current, total, phase);
     });
     indexed = toIndex.length;
+
+    // S337: Save commit marker after successful index
+    if (currentCommit) {
+      saveLastIndexedCommit(this.config.indexPath, currentCommit);
+    }
 
     return { indexed, skipped };
   }
