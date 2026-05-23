@@ -216,6 +216,7 @@ program
   .option('--since <date>', 'Filter results after this date (YYYY-MM-DD)')
   .option('--until <date>', 'Filter results before this date (YYYY-MM-DD)')
   .option('--type <types>', 'Filter by content type (comma-separated: session,issue,commit,docs,conversation)')
+  .option('--federate <paths>', 'Also search additional repo paths (comma-separated)')
   .action(async (query, options) => {
     try {
       const config = await loadConfig(options.path);
@@ -253,7 +254,36 @@ program
         searchOpts.contentTypes = options.type.split(',').map((t: string) => t.trim());
       }
 
-      const results = await manager.search(searchOpts);
+      let results = await manager.search(searchOpts);
+
+      // S338: Federated search across multiple repos
+      if (options.federate) {
+        const federatedPaths = options.federate.split(',').map((p: string) => p.trim());
+        for (const fedPath of federatedPaths) {
+          const resolvedPath = fedPath.startsWith('~')
+            ? fedPath.replace('~', process.env.HOME || '')
+            : fedPath;
+          try {
+            const fedConfig = await loadConfig(resolvedPath);
+            const fedInitialized = await checkInitialized(fedConfig.indexPath);
+            if (fedInitialized) {
+              const fedManager = new MemoryManager(fedConfig);
+              const fedResults = await fedManager.search(searchOpts);
+              // Tag results with source repo
+              fedResults.forEach(r => {
+                (r as any).sourceRepo = fedPath;
+              });
+              results = [...results, ...fedResults];
+            }
+          } catch (e) {
+            // Skip repos that fail to load
+          }
+        }
+        // Re-sort combined results by similarity
+        results.sort((a, b) => b.similarity - a.similarity);
+        // Limit to requested count
+        results = results.slice(0, parseInt(options.limit));
+      }
 
       if (results.length === 0) {
         console.log('No results found. Try: -t 0.3');

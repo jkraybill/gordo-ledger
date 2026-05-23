@@ -60,7 +60,7 @@ class GordoLedgerServer {
     });
   }
 
-  private async loadConfig(): Promise<MemoryConfig> {
+  private async loadConfig(): Promise<MemoryConfig & { federatedPaths?: string[] }> {
     try {
       const configPath = path.join(this.repoPath, 'config.json');
       const configContent = await fs.readFile(configPath, 'utf-8');
@@ -74,6 +74,44 @@ class GordoLedgerServer {
       // Use defaults if config not found
       return DEFAULT_CONFIG;
     }
+  }
+
+  // S338: Get federated memory managers for cross-repo search
+  private async getFederatedManagers(): Promise<MemoryManager[]> {
+    const config = await this.loadConfig();
+    const federatedPaths = (config as any).federatedPaths || [];
+    const managers: MemoryManager[] = [];
+
+    for (const fedPath of federatedPaths) {
+      const resolvedPath = fedPath.startsWith('~')
+        ? fedPath.replace('~', process.env.HOME || '')
+        : fedPath;
+      try {
+        const fedConfigPath = path.join(resolvedPath, 'config.json');
+        let fedConfig: MemoryConfig;
+        try {
+          const fedConfigContent = await fs.readFile(fedConfigPath, 'utf-8');
+          const parsedConfig = JSON.parse(fedConfigContent);
+          fedConfig = { ...DEFAULT_CONFIG, ...parsedConfig.memory?.semantic };
+        } catch {
+          fedConfig = { ...DEFAULT_CONFIG };
+        }
+        fedConfig.indexPath = path.join(resolvedPath, fedConfig.indexPath);
+
+        // Check if index exists
+        try {
+          await fs.access(fedConfig.indexPath);
+          const fedManager = new MemoryManager(fedConfig);
+          await fedManager.initialize();
+          managers.push(fedManager);
+        } catch {
+          // Index doesn't exist, skip
+        }
+      } catch {
+        // Skip repos that fail to load
+      }
+    }
+    return managers;
   }
 
   private async getMemoryManager(): Promise<MemoryManager> {
@@ -459,7 +497,21 @@ class GordoLedgerServer {
               };
             }
 
-            const results = await manager.search(searchOpts);
+            let results = await manager.search(searchOpts);
+
+            // S338: Federated search across umbrella repos
+            const federatedManagers = await this.getFederatedManagers();
+            for (const fedManager of federatedManagers) {
+              try {
+                const fedResults = await fedManager.search(searchOpts);
+                results = [...results, ...fedResults];
+              } catch {
+                // Skip failed federated searches
+              }
+            }
+            // Re-sort by similarity and limit
+            results.sort((a, b) => b.similarity - a.similarity);
+            results = results.slice(0, limit);
 
             // Compact format: one line per result, optimized for LLM consumption
             // Format: "77% session-4 (2026-05-22) — Summary or preview..."

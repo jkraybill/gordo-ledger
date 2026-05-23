@@ -29,6 +29,8 @@ export interface MemoryConfig {
     include?: string[]; // Glob patterns to include (e.g., ["docs/**/*.md"])
     exclude?: string[]; // Glob patterns to exclude (e.g., ["node_modules/**"])
   };
+  // S338: Cross-encoder reranking for improved accuracy
+  rerankerEnabled?: boolean;  // Default: true if DEEPINFRA_API_KEY available
 }
 
 export interface SessionEntry {

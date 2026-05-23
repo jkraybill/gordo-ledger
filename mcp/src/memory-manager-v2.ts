@@ -14,6 +14,7 @@ import { parseGenericFiles, setJournalParsingFailed } from './parser/generic-fil
 import { parseIssuesAndCommits } from './parser/issue-commit-parser.js';
 import { extractConversations, isExtractionAvailable } from './parser/conversation-extractor.js';
 import { createEmbeddingProvider, type EmbeddingConfig } from './embeddings/provider.js';
+import { rerank, isRerankerAvailable } from './reranker.js';
 import { createHNSWIndexer, type HNSWConfig } from './indexer/hnsw-indexer.js';
 import * as fs from 'fs/promises';
 import * as fsSync from 'fs';
@@ -402,13 +403,48 @@ export class MemoryManager {
     const limit = options.limit || 5;
     const threshold = options.threshold || this.config.threshold;
 
-    const hnswResults = await this.indexer.hybridSearch(
+    // Retrieve more candidates for reranking (3x limit, min 20)
+    const retrieveLimit = Math.max(limit * 3, 20);
+
+    let hnswResults = await this.indexer.hybridSearch(
       queryEmbedding,
       options.query, // queryText for BM25
-      limit,
+      retrieveLimit,
       threshold,
       filters
     );
+
+    // S338: Cross-encoder reranking for improved accuracy
+    // Reranks top candidates using DeepInfra's Qwen3-Reranker-4B
+    if (this.config.rerankerEnabled !== false && hnswResults.length > 1) {
+      try {
+        const reranked = await rerank(
+          options.query,
+          hnswResults.map(r => ({
+            id: r.id,
+            content: r.content,
+            score: r.score,
+            metadata: r.metadata,
+          })),
+          { enabled: true, topK: 20 }
+        );
+
+        // Update results with reranker scores
+        hnswResults = reranked.map(r => ({
+          id: r.id,
+          content: r.content,
+          score: r.score,
+          similarity: r.score, // Use reranker score as similarity
+          metadata: r.metadata,
+        }));
+      } catch (error) {
+        // Reranker failed, continue with original results
+        console.warn('Reranker error, using original ranking:', error);
+      }
+    }
+
+    // Limit to requested number after reranking
+    hnswResults = hnswResults.slice(0, limit);
 
     // Convert HNSW results to expected SearchResult format
     // Default: truncate content to avoid MCP token limits (Issue #126)
