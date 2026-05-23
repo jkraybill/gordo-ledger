@@ -164,15 +164,14 @@ export class MemoryManager {
 
     if (incremental && currentCommit) {
       const lastCommit = getLastIndexedCommit(this.config.indexPath);
-      if (lastCommit) {
-        if (lastCommit === currentCommit) {
-          // Same commit - nothing to do
-          onProgress?.(0, 0, 'Already indexed at this commit');
-          return { indexed: 0, skipped: 0 };
-        }
+      // Only use git-aware optimization when commits differ.
+      // When marker === HEAD, we're either in a pre-commit hook (HEAD hasn't moved)
+      // or running after a failed prior index. Either way, fall through to
+      // content-based comparison.
+      if (lastCommit && lastCommit !== currentCommit) {
         const changedFiles = getChangedFilesSince(repoPath, lastCommit);
         if (changedFiles.length === 0) {
-          // No files changed since last index - nothing to do
+          // No files changed since last index - update marker and return
           onProgress?.(0, 0, 'No changes since last index');
           saveLastIndexedCommit(this.config.indexPath, currentCommit);
           return { indexed: 0, skipped: 0 };
