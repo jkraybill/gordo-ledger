@@ -25,6 +25,9 @@ export interface MemoryConfig {
   // Fix #139: Selective indexing controls
   indexDocs?: boolean;  // Default: true - Index documentation files (.md, .txt, etc.)
   indexCode?: boolean;  // Default: false - Index code files (.ts, .js, .py, etc.)
+  // Issue #9: LLM-extracted code summaries
+  extractCodeFacts?: boolean;  // Default: false - Use LLM to extract semantic facts from code
+  codeExtractionModel?: string;  // Default: 'qwen2.5:3b' - Ollama model for extraction
   indexPatterns?: {
     include?: string[]; // Glob patterns to include (e.g., ["docs/**/*.md"])
     exclude?: string[]; // Glob patterns to exclude (e.g., ["node_modules/**"])

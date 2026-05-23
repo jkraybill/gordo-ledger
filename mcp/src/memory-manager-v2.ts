@@ -274,7 +274,7 @@ export class MemoryManager {
     const wantCode = this.config.indexCode ?? false;
     if ((wantDocs || wantCode) && (!changedCategories || changedCategories.docsCode)) {
       onProgress?.(0, 0, 'Indexing documentation and code...');
-      const genericFiles = await parseGenericFiles(repoPath, this.config);
+      const genericFiles = await parseGenericFiles(repoPath, this.config, onProgress);
       sessions = [...sessions, ...genericFiles];
     }
 

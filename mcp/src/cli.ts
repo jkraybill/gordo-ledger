@@ -138,6 +138,9 @@ program
   .option('--provider <provider>', 'Embedding provider (ollama, openai, hybrid)')
   .option('--model <model>', 'Embedding model name')
   .option('--extract', 'Extract conversations using EverMemOS (episodes + atomic facts)', false)
+  .option('--index-code', 'Index code files (issue #9)', false)
+  .option('--extract-code-facts', 'Use LLM to extract semantic facts from code (issue #9)', false)
+  .option('--code-model <model>', 'Ollama model for code extraction', 'qwen2.5:3b')
   .action(async (options) => {
     try {
       // Validate path exists
@@ -154,6 +157,15 @@ program
       }
       if (options.extract) {
         config.extractConversations = true;
+      }
+      // Issue #9: Code indexing flags
+      if (options.indexCode) {
+        config.indexCode = true;
+      }
+      if (options.extractCodeFacts) {
+        config.indexCode = true;  // Also enable code indexing
+        config.extractCodeFacts = true;
+        config.codeExtractionModel = options.codeModel;
       }
 
       const manager = new MemoryManager(config);

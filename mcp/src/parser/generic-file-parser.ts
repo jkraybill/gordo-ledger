@@ -5,6 +5,12 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import type { SessionEntry, MemoryConfig } from '../types.js';
 import { minimatch } from 'minimatch';
+import {
+  extractCodeFacts,
+  extractionToIndexableText,
+  isExtractionAvailable as isCodeExtractionAvailable,
+  type CodeExtractorConfig,
+} from './code-extractor.js';
 
 /**
  * File extensions to index (text files only)
@@ -292,8 +298,14 @@ export async function discoverFiles(
 /**
  * Parse a single file into a SessionEntry (Fix #139)
  * Large files are chunked into multiple entries
+ * Issue #9: Code files can use LLM extraction for semantic summaries
  */
-export async function parseFile(filePath: string, rootPath: string): Promise<SessionEntry[]> {
+export async function parseFile(
+  filePath: string,
+  rootPath: string,
+  config?: MemoryConfig,
+  extractorConfig?: Partial<CodeExtractorConfig>
+): Promise<SessionEntry[]> {
   const content = await fs.readFile(filePath, 'utf-8');
   const stats = await fs.stat(filePath);
   const relativePath = path.relative(rootPath, filePath);
@@ -304,6 +316,40 @@ export async function parseFile(filePath: string, rootPath: string): Promise<Ses
 
   // Determine content type (Fix #139)
   const contentType = getFileContentType(filePath);
+
+  // Issue #9: For code files with extraction enabled, use LLM-extracted summaries
+  if (contentType === 'code' && config?.extractCodeFacts && extractorConfig) {
+    const extraction = await extractCodeFacts(filePath, rootPath, extractorConfig);
+    if (extraction) {
+      const indexableContent = extractionToIndexableText(extraction);
+      const entry: SessionEntry = {
+        id: relativePath,
+        contentType: 'code',
+        date: stats.mtime.toISOString().split('T')[0],
+        summary: extraction.summary || `Code: ${basename}`,
+        content: indexableContent,
+        patterns: extraction.patterns,
+        issues: [],
+        metadata: {
+          language: extraction.language,
+          functions: extraction.functions.length,
+          classes: extraction.classes.length,
+          constants: extraction.constants.length,
+          apis: extraction.apis.length,
+        },
+        signals: {
+          success: false,
+          failed: false,
+          warning: false,
+          ledTo: false,
+          mixed: false,
+          bigChange: false
+        }
+      };
+      return [entry];
+    }
+    // Extraction failed or returned null - fall through to raw content
+  }
 
   // For small files (<1000 lines), create single entry
   const lines = content.split('\n');
@@ -368,18 +414,45 @@ export async function parseFile(filePath: string, rootPath: string): Promise<Ses
 
 /**
  * Parse all files in a directory into SessionEntries (Fix #139)
+ * Issue #9: Supports LLM-based code extraction when extractCodeFacts is enabled
  */
 export async function parseGenericFiles(
   rootPath: string,
-  config?: MemoryConfig
+  config?: MemoryConfig,
+  onProgress?: (current: number, total: number, stage: string) => void
 ): Promise<SessionEntry[]> {
   const files = await discoverFiles(rootPath, config);
   const entries: SessionEntry[] = [];
 
+  // Issue #9: Set up code extraction config if enabled
+  let extractorConfig: Partial<CodeExtractorConfig> | undefined;
+  if (config?.extractCodeFacts) {
+    const available = await isCodeExtractionAvailable({
+      model: config.codeExtractionModel || 'qwen2.5:3b',
+    });
+    if (available) {
+      extractorConfig = {
+        model: config.codeExtractionModel || 'qwen2.5:3b',
+        cachePath: path.join(rootPath, '.gordo-memory', 'code-extracts'),
+      };
+      onProgress?.(0, files.length, 'Extracting code semantics...');
+    } else {
+      console.warn('Code extraction requested but model not available');
+    }
+  }
+
+  let processed = 0;
   for (const file of files) {
-    const fileEntries = await parseFile(file, rootPath);
+    const fileEntries = await parseFile(file, rootPath, config, extractorConfig);
     entries.push(...fileEntries);
+    processed++;
+    if (extractorConfig && processed % 10 === 0) {
+      onProgress?.(processed, files.length, 'Extracting code semantics...');
+    }
   }
 
   return entries;
 }
+
+// Re-export for use in memory-manager
+export { isCodeExtractionAvailable };
