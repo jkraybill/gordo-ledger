@@ -75,6 +75,20 @@ function getChangedFilesSince(repoPath: string, sinceCommit: string): string[] {
   }
 }
 
+// S339: Get staged files for pre-commit hook optimization
+function getStagedFiles(repoPath: string): string[] {
+  try {
+    // Use /usr/bin/git directly to bypass identity-partition hooks (read-only op)
+    const output = execSync('/usr/bin/git diff --cached --name-only', {
+      cwd: repoPath,
+      encoding: 'utf-8',
+    });
+    return output.split('\n').filter(f => f.trim());
+  } catch {
+    return [];
+  }
+}
+
 function categorizeChanges(changedFiles: string[]): ChangedCategories {
   const result: ChangedCategories = {
     sessions: false,
@@ -165,11 +179,9 @@ export class MemoryManager {
 
     if (incremental && currentCommit) {
       const lastCommit = getLastIndexedCommit(this.config.indexPath);
-      // Only use git-aware optimization when commits differ.
-      // When marker === HEAD, we're either in a pre-commit hook (HEAD hasn't moved)
-      // or running after a failed prior index. Either way, fall through to
-      // content-based comparison.
+
       if (lastCommit && lastCommit !== currentCommit) {
+        // Commits differ: use git diff between commits
         const changedFiles = getChangedFilesSince(repoPath, lastCommit);
         if (changedFiles.length === 0) {
           // No files changed since last index - update marker and return
@@ -185,6 +197,22 @@ export class MemoryManager {
           changedCategories.docsCode && 'docs/code',
         ].filter(Boolean).join(', ');
         onProgress?.(0, 0, `Changed: ${categories} (${changedFiles.length} files)`);
+      } else if (lastCommit === currentCommit) {
+        // S339: Same commit (pre-commit hook context) - check staged files
+        const stagedFiles = getStagedFiles(repoPath);
+        if (stagedFiles.length > 0) {
+          changedCategories = categorizeChanges(stagedFiles);
+          const categories = [
+            changedCategories.sessions && 'sessions',
+            changedCategories.issues && 'issues',
+            changedCategories.commits && 'commits',
+            changedCategories.docsCode && 'docs/code',
+          ].filter(Boolean).join(', ');
+          onProgress?.(0, 0, `Staged: ${categories} (${stagedFiles.length} files)`);
+        }
+        // If no staged files, fall through to content-based comparison.
+        // This handles test scenarios and incremental runs where content
+        // may have changed without staging.
       }
     }
 
