@@ -416,8 +416,10 @@ export class MemoryManager {
     const maxLength = options.maxContentLength ?? 500;
 
     // Default hierarchical boost multipliers (prioritize extracted conversations and sessions)
+    // S337: Added 'memory' type for auto-memory files (behavioral guidance, preferences)
     const defaultBoost = {
       conversation: 2.5,
+      memory: 2.0,     // S337: Auto-memory files contain behavioral guidance
       session: 2.0,
       issue: 1.5,
       commit: 1.2,

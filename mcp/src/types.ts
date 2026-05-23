@@ -33,7 +33,7 @@ export interface MemoryConfig {
 
 export interface SessionEntry {
   id: string;              // e.g., "Session_01", "issue-123", "commit-abc1234"
-  contentType?: 'session' | 'issue' | 'commit' | 'code' | 'docs' | 'conversation';  // conversation = extracted episodes+facts (#4)
+  contentType?: 'session' | 'issue' | 'commit' | 'code' | 'docs' | 'conversation' | 'memory';  // memory = auto-memory behavioral guidance (S337)
   date: string;            // ISO date
   content: string;         // Full session content
   summary?: string;        // Brief summary
@@ -60,7 +60,7 @@ export interface SearchResult {
   summary?: string;
   date: string;
   rank: number;
-  contentType?: 'session' | 'issue' | 'commit' | 'code' | 'docs' | 'conversation';
+  contentType?: 'session' | 'issue' | 'commit' | 'code' | 'docs' | 'conversation' | 'memory';
 }
 
 export interface SearchOptions {
@@ -75,7 +75,7 @@ export interface SearchOptions {
   };
   includePatterns?: string[];
   excludePatterns?: string[];
-  contentTypes?: ('session' | 'issue' | 'commit' | 'code' | 'docs' | 'conversation')[];  // Filter by content type
+  contentTypes?: ('session' | 'issue' | 'commit' | 'code' | 'docs' | 'conversation' | 'memory')[];  // Filter by content type
 }
 
 export interface EmbeddingProvider {

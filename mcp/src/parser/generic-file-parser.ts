@@ -82,10 +82,27 @@ async function isBinaryFile(filePath: string): Promise<boolean> {
 }
 
 /**
- * Determine content type for a file (Fix #139)
+ * Check if file is an auto-memory file (S337)
+ * Detects files in memory directories (Claude Code auto-memory, etc.)
  */
-function getFileContentType(filePath: string): 'docs' | 'code' | null {
+function isMemoryFile(filePath: string): boolean {
+  const normalized = filePath.replace(/\\/g, '/');
+  // Match paths containing /memory/ directory or auto-memory symlink
+  return /\/(auto-)?memory\//.test(normalized) ||
+         normalized.includes('/.claude/') && normalized.includes('/memory/');
+}
+
+/**
+ * Determine content type for a file (Fix #139)
+ * S337: Added 'memory' type for auto-memory files
+ */
+function getFileContentType(filePath: string): 'docs' | 'code' | 'memory' | null {
   const ext = path.extname(filePath).toLowerCase();
+
+  // S337: Memory files get their own content type for boosted ranking
+  if (isMemoryFile(filePath) && DOC_EXTENSIONS.has(ext)) {
+    return 'memory';
+  }
 
   if (DOC_EXTENSIONS.has(ext)) {
     return 'docs';
@@ -184,6 +201,10 @@ function shouldIndexFile(
 
   if (contentType === 'docs' && !indexDocs) {
     return false; // Docs disabled
+  }
+  // S337: Memory files follow docs indexing (they're a specialized doc type)
+  if (contentType === 'memory' && !indexDocs) {
+    return false; // Memory disabled when docs disabled
   }
   if (contentType === 'code' && !indexCode) {
     return false; // Code disabled

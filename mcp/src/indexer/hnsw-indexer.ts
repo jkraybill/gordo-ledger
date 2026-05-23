@@ -56,7 +56,7 @@ export interface SessionMetadata {
   wordCount: number;
   hasCode: boolean;
   hasLinks: boolean;
-  contentType?: 'session' | 'issue' | 'commit' | 'code' | 'docs' | 'conversation';  // Fix #138, #4
+  contentType?: 'session' | 'issue' | 'commit' | 'code' | 'docs' | 'conversation' | 'memory';  // Fix #138, #4, S337
   // SHA-256 of session content. Used by incremental indexing to detect
   // content updates (e.g., EOS narrative appended to an existing session
   // entry) and trigger reindex. Optional for backward compat with indexes
@@ -529,13 +529,14 @@ export function createHNSWIndexer(config: HNSWConfig) {
   }
 
   /**
-   * Get hierarchical content type boost multiplier (Fix #138, #4)
+   * Get hierarchical content type boost multiplier (Fix #138, #4, S337)
    * Higher values rank content type higher in search results
    */
-  function getContentTypeBoost(contentType?: 'session' | 'issue' | 'commit' | 'code' | 'docs' | 'conversation'): number {
+  function getContentTypeBoost(contentType?: 'session' | 'issue' | 'commit' | 'code' | 'docs' | 'conversation' | 'memory'): number {
     // Default boost multipliers (can be made configurable later)
     const DEFAULT_BOOST: Record<string, number> = {
       conversation: 2.5,  // Extracted episodes/facts rank highest (#4)
+      memory: 2.0,        // Auto-memory files contain behavioral guidance (S337)
       session: 2.0,       // Sessions are high priority
       issue: 1.5,         // Issues are high priority
       commit: 1.2,        // Commits are medium-high priority
