@@ -529,11 +529,12 @@ export function createHNSWIndexer(config: HNSWConfig) {
   }
 
   /**
-   * Get hierarchical content type boost multiplier (Fix #138, #4, S337)
+   * Get hierarchical content type boost multiplier (Fix #138, #4, S337, S343)
    * Higher values rank content type higher in search results
    */
   function getContentTypeBoost(contentType?: 'session' | 'issue' | 'commit' | 'code' | 'docs' | 'conversation' | 'memory'): number {
     // Default boost multipliers (can be made configurable later)
+    // S343: Raised code from 0.5 to 1.0 - LLM-extracted summaries aren't noisy raw source
     const DEFAULT_BOOST: Record<string, number> = {
       conversation: 2.5,  // Extracted episodes/facts rank highest (#4)
       memory: 2.0,        // Auto-memory files contain behavioral guidance (S337)
@@ -541,7 +542,7 @@ export function createHNSWIndexer(config: HNSWConfig) {
       issue: 1.5,         // Issues are high priority
       commit: 1.2,        // Commits are medium-high priority
       docs: 1.0,          // Docs are baseline
-      code: 0.5           // Code is lowest priority (noisy)
+      code: 1.0           // Code summaries on par with docs (S343 - was 0.5)
     };
 
     return contentType ? (DEFAULT_BOOST[contentType] ?? 1.0) : 1.0;
