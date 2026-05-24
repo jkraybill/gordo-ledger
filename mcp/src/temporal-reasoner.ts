@@ -55,7 +55,7 @@ const TEMPORAL_PATTERNS = {
   ],
   sequence: [
     /\bwhat .+ next\b/i,
-    /\bpick up\b/i,
+    /\bpick(?:ed)? up\b/i,
     /\bcontinue[ds]?\b/i,
     /\binterrupt(?:ed|ion)?\b/i,
     /\bleft incomplete\b/i,
