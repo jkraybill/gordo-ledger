@@ -15,6 +15,7 @@ import { parseIssuesAndCommits } from './parser/issue-commit-parser.js';
 import { extractConversations, isExtractionAvailable } from './parser/conversation-extractor.js';
 import { createEmbeddingProvider, type EmbeddingConfig } from './embeddings/provider.js';
 import { rerank, isRerankerAvailable } from './reranker.js';
+import { detectTemporalIntent, applyTemporalReasoning } from './temporal-reasoner.js';
 import { createHNSWIndexer, type HNSWConfig } from './indexer/hnsw-indexer.js';
 import * as fs from 'fs/promises';
 import * as fsSync from 'fs';
@@ -563,6 +564,12 @@ export class MemoryManager {
       filtered = filtered.filter(r =>
         options.contentTypes!.includes((r as any).contentType)
       );
+    }
+
+    // S342: Apply temporal reasoning for time-aware queries
+    const temporalIntent = detectTemporalIntent(options.query);
+    if (temporalIntent.type !== 'none') {
+      filtered = applyTemporalReasoning(filtered, temporalIntent);
     }
 
     return filtered;
