@@ -16,6 +16,7 @@ import { extractConversations, isExtractionAvailable } from './parser/conversati
 import { createEmbeddingProvider, type EmbeddingConfig } from './embeddings/provider.js';
 import { rerank, isRerankerAvailable } from './reranker.js';
 import { detectTemporalIntent, applyTemporalReasoning } from './temporal-reasoner.js';
+import { detectQueryIntent, getDynamicBoosts } from './query-intent.js';
 import { createHNSWIndexer, type HNSWConfig } from './indexer/hnsw-indexer.js';
 import * as fs from 'fs/promises';
 import * as fsSync from 'fs';
@@ -500,18 +501,13 @@ export class MemoryManager {
     const includeFullContent = options.includeFullContent ?? false;
     const maxLength = options.maxContentLength ?? 500;
 
-    // Default hierarchical boost multipliers (prioritize extracted conversations and sessions)
-    // S337: Added 'memory' type for auto-memory files (behavioral guidance, preferences)
-    const defaultBoost = {
-      conversation: 2.5,
-      memory: 2.0,     // S337: Auto-memory files contain behavioral guidance
-      session: 2.0,
-      issue: 1.5,
-      commit: 1.2,
-      docs: 1.0,
-      code: 0.5,
-    };
-    const boost = { ...defaultBoost, ...this.config.hierarchicalBoost };
+    // S345: Query intent detection for dynamic boost adjustment
+    // Detects what kind of content the user is looking for and adjusts boosts
+    const queryIntent = detectQueryIntent(options.query);
+    const dynamicBoost = getDynamicBoosts(queryIntent);
+
+    // Merge: dynamic boosts as base, config overrides have final say
+    const boost = { ...dynamicBoost, ...this.config.hierarchicalBoost };
 
     const results: SearchResult[] = hnswResults.map((result) => {
       const fullContent = result.content;
