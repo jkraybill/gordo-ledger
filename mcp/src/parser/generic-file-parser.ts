@@ -45,81 +45,6 @@ const CODE_EXTENSIONS = new Set([
 ]);
 
 /**
- * Semantic chunking configuration
- * S346: Chunk markdown by headers instead of fixed lines
- */
-const SEMANTIC_CHUNK_CONFIG = {
-  minChunkSize: 50,      // Minimum chars to create a chunk (avoid tiny fragments)
-  maxChunkSize: 15000,   // Max chars before falling back to line-based splitting
-  headerPattern: /^## /m // Split at level-2 headers
-};
-
-/**
- * Chunk markdown content by ## headers (S346)
- * Returns array of {id: string, content: string, summary: string} chunks
- * Falls back to null if no headers found or content is small enough for single chunk
- */
-function chunkMarkdownByHeaders(
-  content: string,
-  relativePath: string,
-  basename: string
-): Array<{id: string; content: string; summary: string}> | null {
-  const { minChunkSize, maxChunkSize, headerPattern } = SEMANTIC_CHUNK_CONFIG;
-
-  // Don't chunk if content is small
-  if (content.length <= maxChunkSize) {
-    return null; // Use single-entry path
-  }
-
-  // Split at ## headers
-  const parts = content.split(headerPattern);
-  if (parts.length <= 1) {
-    return null; // No headers found, fall back to line-based
-  }
-
-  const chunks: Array<{id: string; content: string; summary: string}> = [];
-
-  // First part is content before first ## (preamble)
-  if (parts[0].trim().length >= minChunkSize) {
-    chunks.push({
-      id: `${relativePath}:preamble`,
-      content: parts[0].trim(),
-      summary: `${basename} (preamble)`
-    });
-  }
-
-  // Remaining parts start with header text
-  for (let i = 1; i < parts.length; i++) {
-    const part = '## ' + parts[i]; // Restore the ## prefix
-    if (part.trim().length < minChunkSize) continue;
-
-    // Extract header text for summary
-    const headerMatch = part.match(/^## ([^\n]+)/);
-    const headerText = headerMatch ? headerMatch[1].trim() : `section ${i}`;
-
-    // Create semantic ID from header
-    const semanticId = headerText
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '')
-      .substring(0, 50);
-
-    chunks.push({
-      id: `${relativePath}:${semanticId || `section-${i}`}`,
-      content: part.trim(),
-      summary: `${basename}: ${headerText}`
-    });
-  }
-
-  // If chunking produced only 1 chunk, return null to use single-entry path
-  if (chunks.length <= 1) {
-    return null;
-  }
-
-  return chunks;
-}
-
-/**
  * Directories to always skip (like .gitignore)
  */
 const IGNORED_DIRS = new Set([
@@ -426,31 +351,6 @@ export async function parseFile(
     // Extraction failed or returned null - fall through to raw content
   }
 
-  // S346: Try semantic chunking for markdown files first
-  const isMarkdown = ext.toLowerCase() === '.md';
-  if (isMarkdown) {
-    const semanticChunks = chunkMarkdownByHeaders(content, relativePath, basename);
-    if (semanticChunks && semanticChunks.length > 0) {
-      return semanticChunks.map(chunk => ({
-        id: chunk.id,
-        contentType: contentType || undefined,
-        date: stats.mtime.toISOString().split('T')[0],
-        summary: chunk.summary,
-        content: chunk.content,
-        patterns: [],
-        issues: [],
-        signals: {
-          success: false,
-          failed: false,
-          warning: false,
-          ledTo: false,
-          mixed: false,
-          bigChange: false
-        }
-      }));
-    }
-  }
-
   // For small files (<1000 lines), create single entry
   const lines = content.split('\n');
   const CHUNK_SIZE = 1000; // lines per chunk
@@ -478,7 +378,7 @@ export async function parseFile(
     return [entry];
   }
 
-  // Large file - chunk it by lines (fallback for non-markdown or markdown without headers)
+  // Large file - chunk it
   const entries: SessionEntry[] = [];
   const numChunks = Math.ceil(lines.length / CHUNK_SIZE);
 
