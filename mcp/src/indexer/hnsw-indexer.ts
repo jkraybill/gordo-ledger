@@ -1,20 +1,19 @@
 /**
  * HNSW Indexer Implementation (Session 34 - TDD approach)
- * True hybrid search with RRF fusion (Session 347 - research-driven)
+ * Dynamic hybrid search with hnswlib-node (Session 58 - #108)
  *
  * Architecture decision: Embedded mode (no server required)
  * - hnswlib-node for dense vector search (HNSW algorithm)
  * - Manual BM25 implementation for keyword scoring
- * - Reciprocal Rank Fusion (RRF) for true hybrid merge (S347):
- *   * Run HNSW and BM25 independently
- *   * Merge using RRF formula: score = sum(1 / (k + rank))
- *   * This catches exact matches that dense search misses
+ * - Dynamic hybrid merge (Session 58 - #108):
+ *   * Short queries (≤2 words): 0.3 dense + 0.7 BM25 (favor keyword)
+ *   * Longer queries (>2 words): 0.7 dense + 0.3 BM25 (favor semantic)
  *
  * Rationale: User experience > implementation complexity
  * - No Docker/server needed (vs Qdrant server mode)
  * - Self-contained (npm install → works)
  * - Local-first (matches framework philosophy)
- * - RRF improves recall by +15-30% vs weighted merge (research)
+ * - Dynamic weighting improves single-word query quality
  */
 
 import hnswlib from 'hnswlib-node';
@@ -294,96 +293,68 @@ export function createHNSWIndexer(config: HNSWConfig) {
       await checkAndReloadIfStale(); // Auto-reload if disk has newer data
       if (!index) throw new Error('Index not initialized');
 
-      // S347: True hybrid search with Reciprocal Rank Fusion (RRF)
-      // Run HNSW and BM25 independently, then fuse with RRF formula
+      // Dense search with HNSW
+      const k = Math.min(limit * 3, nextIndex); // Retrieve more candidates for reranking
+      if (k === 0) return [];
 
-      // Dense search with HNSW - retrieve more candidates for fusion
-      const retrieveK = Math.min(limit * 5, nextIndex);
-      if (retrieveK === 0) return [];
+      const { neighbors, distances } = index.searchKnn(queryEmbedding, k);
 
-      const { neighbors, distances } = index.searchKnn(queryEmbedding, retrieveK);
+      // Convert distances to similarity scores (cosine: 1 - distance)
+      const denseCandidates = neighbors.map((docIndex, i) => {
+        const id = indexToId.get(docIndex);
+        if (!id) return null;
 
-      // Build dense results with ranks
-      const denseResults: Array<{ id: string; rank: number; score: number }> = [];
-      for (let i = 0; i < neighbors.length; i++) {
-        const id = indexToId.get(neighbors[i]);
-        if (id && documentStore[id]) {
-          denseResults.push({
-            id,
-            rank: i + 1,
-            score: 1 - distances[i]
-          });
-        }
-      }
+        const doc = documentStore[id];
+        if (!doc) return null;
 
-      // BM25 sparse search - compute scores for ALL documents
+        const denseScore = 1 - distances[i]; // cosine similarity
+        return { id, doc, denseScore, docIndex };
+      }).filter(c => c !== null);
+
+      // BM25 sparse search
       const queryTokens = tokenize(queryText);
       const bm25Scores = computeBM25Scores(queryTokens);
 
-      // Sort BM25 results by score to get ranks
-      const bm25Results: Array<{ id: string; rank: number; score: number }> = [];
-      const sortedBM25 = Array.from(bm25Scores.entries())
-        .filter(([_, score]) => score > 0)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, retrieveK);
+      // Dynamic hybrid weighting based on query length (#108)
+      // Short queries (≤2 words): Favor BM25 keyword matching (0.3 dense + 0.7 BM25)
+      // Longer queries (>2 words): Favor semantic dense search (0.7 dense + 0.3 BM25)
+      const queryWords = queryTokens.length;
+      const denseWeight = queryWords <= 2 ? 0.3 : 0.7;
+      const bm25Weight = queryWords <= 2 ? 0.7 : 0.3;
 
-      for (let i = 0; i < sortedBM25.length; i++) {
-        bm25Results.push({
-          id: sortedBM25[i][0],
-          rank: i + 1,
-          score: sortedBM25[i][1]
-        });
-      }
+      // Hybrid merge with dynamic weighting
+      const hybridResults = denseCandidates.map(candidate => {
+        const bm25Score = bm25Scores.get(candidate!.id) || 0;
+        const normalizedBM25 = normalizeBM25(bm25Score); // Normalize to [0, 1]
+        const hybridScore = denseWeight * candidate!.denseScore + bm25Weight * normalizedBM25;
 
-      // RRF fusion: score = sum(1 / (k + rank)) across retrievers
-      // k=60 is standard RRF constant (smoothing factor)
-      const RRF_K = 60;
-      const rrfScores = new Map<string, number>();
-
-      // Add RRF contribution from dense results
-      for (const result of denseResults) {
-        const rrfScore = 1 / (RRF_K + result.rank);
-        rrfScores.set(result.id, (rrfScores.get(result.id) || 0) + rrfScore);
-      }
-
-      // Add RRF contribution from BM25 results
-      for (const result of bm25Results) {
-        const rrfScore = 1 / (RRF_K + result.rank);
-        rrfScores.set(result.id, (rrfScores.get(result.id) || 0) + rrfScore);
-      }
-
-      // Normalize RRF scores to [0, 1] for compatibility with threshold logic
-      // Max raw RRF = 2 * (1 / (k + 1)) = 2/61 ≈ 0.0328 (rank 1 in both retrievers)
-      const MAX_RAW_RRF = 2 / (RRF_K + 1);
-
-      // Build final results sorted by normalized RRF score
-      const hybridResults: SearchResult[] = [];
-      const sortedRRF = Array.from(rrfScores.entries())
-        .sort((a, b) => b[1] - a[1]);
-
-      for (const [id, rawRrfScore] of sortedRRF) {
-        const doc = documentStore[id];
-        if (!doc) continue;
-
-        // Normalize to [0, 1] range
-        const normalizedRrf = Math.min(rawRrfScore / MAX_RAW_RRF, 1.0);
-
-        // Apply hierarchical content weighting boost
-        const contentType = doc.metadata.contentType;
+        // Fix #138: Apply hierarchical content weighting boost
+        const contentType = candidate!.doc.metadata.contentType;
         const boost = getContentTypeBoost(contentType);
-        const boostedScore = Math.min(normalizedRrf * boost, 1.0);
+        const boostedScore = hybridScore * boost;
 
-        hybridResults.push({
-          id,
-          content: doc.content,
+        return {
+          id: candidate!.id,
+          content: candidate!.doc.content,
           score: boostedScore,
-          similarity: normalizedRrf,
-          metadata: doc.metadata
-        });
-      }
+          similarity: hybridScore,
+          metadata: candidate!.doc.metadata
+        };
+      });
 
-      // Apply filters (no deduplication needed - RRF Map guarantees unique IDs)
-      let filtered = hybridResults;
+      // Sort by hybrid score
+      hybridResults.sort((a, b) => b.score - a.score);
+
+      // Deduplicate by ID (keep highest-scoring entry for each ID)
+      const seen = new Set<string>();
+      const deduplicated = hybridResults.filter(result => {
+        if (seen.has(result.id)) return false;
+        seen.add(result.id);
+        return true;
+      });
+
+      // Apply filters
+      let filtered = deduplicated;
 
       if (filters) {
         filtered = filtered.filter(result => {
