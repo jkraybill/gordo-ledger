@@ -504,7 +504,7 @@ export class MemoryManager {
 
     // Default hierarchical boost multipliers (prioritize extracted conversations and sessions)
     // S337: Added 'memory' type for auto-memory files (behavioral guidance, preferences)
-    // S345: Query intent detection available but disabled pending boost tuning
+    // S345: Reverted code from 1.0 to 0.5 - 1.0 caused -22pp backchannel regression
     const defaultBoost = {
       conversation: 2.5,
       memory: 2.0,     // S337: Auto-memory files contain behavioral guidance
@@ -512,7 +512,7 @@ export class MemoryManager {
       issue: 1.5,
       commit: 1.2,
       docs: 1.0,
-      code: 1.0,       // S343: Raised from 0.5 - LLM summaries aren't noisy raw source
+      code: 0.5,       // S345: Reverted from 1.0 - backchannel regression too severe
     };
     const boost = { ...defaultBoost, ...this.config.hierarchicalBoost };
 
