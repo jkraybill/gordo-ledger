@@ -27,6 +27,7 @@ export interface CodeExtraction {
   constants: ConstantFact[];
   apis: ApiFact[];
   patterns: string[];        // Architectural patterns observed
+  rawExcerpts?: string[];    // S344: Key code excerpts for BM25 matching
 }
 
 export interface FunctionFact {
@@ -94,6 +95,77 @@ function detectLanguage(filePath: string): string {
 
 function computeHash(content: string): string {
   return createHash('sha256').update(content).digest('hex').substring(0, 16);
+}
+
+/**
+ * S344: Extract key code excerpts for BM25 matching
+ * Captures declarations, class definitions, method signatures that contain identifiers
+ * the LLM summary might miss.
+ */
+function extractRawExcerpts(code: string, language: string): string[] {
+  // S344: Only extract raw excerpts for actual code languages (not config/data files)
+  const codeLanguages = new Set(['Java', 'TypeScript', 'TypeScript/React', 'JavaScript', 'JavaScript/React', 'Python', 'Go', 'Rust', 'C', 'C++', 'C/C++ Header', 'C++ Header', 'Ruby', 'PHP', 'Shell', 'Bash']);
+  if (!codeLanguages.has(language)) {
+    return [];  // Skip YAML, JSON, SQL, etc.
+  }
+
+  const excerpts: string[] = [];
+  const lines = code.split('\n');
+
+  // Language-specific patterns for declarations
+  const patterns: Record<string, RegExp[]> = {
+    Java: [
+      /^\s*(public|private|protected)?\s*(static)?\s*(final)?\s*\w+(<[\w,\s]+>)?\s+\w+\s*[=;]/,  // Field declarations
+      /^\s*(public|private|protected)?\s*(static)?\s*class\s+\w+/,  // Class declarations
+      /^\s*(public|private|protected)?\s*(static)?\s*interface\s+\w+/,  // Interface declarations
+      /^\s*(public|private|protected)?\s*(static)?\s*\w+(<[\w,\s]+>)?\s+\w+\s*\([^)]*\)/,  // Method signatures
+    ],
+    TypeScript: [
+      /^\s*(export\s+)?(const|let|var)\s+\w+/,  // Variable declarations
+      /^\s*(export\s+)?(class|interface|type|enum)\s+\w+/,  // Type declarations
+      /^\s*(export\s+)?(async\s+)?function\s+\w+/,  // Function declarations
+      /^\s*(public|private|protected)?\s*(readonly)?\s+\w+\s*[=:]/,  // Class properties
+    ],
+    JavaScript: [
+      /^\s*(export\s+)?(const|let|var)\s+\w+/,
+      /^\s*(export\s+)?class\s+\w+/,
+      /^\s*(export\s+)?(async\s+)?function\s+\w+/,
+    ],
+    Python: [
+      /^\s*class\s+\w+/,
+      /^\s*(async\s+)?def\s+\w+/,
+      /^\s*[A-Z][A-Z_]+\s*=/,  // Constants (SCREAMING_SNAKE_CASE)
+      /^\s*self\.\w+\s*=/,  // Instance attributes
+    ],
+  };
+
+  // Get patterns for this language, or use generic patterns
+  const langPatterns = patterns[language] || patterns['TypeScript'] || [];
+
+  for (const line of lines) {
+    // Skip comments and empty lines
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('//') || trimmed.startsWith('#') || trimmed.startsWith('*')) {
+      continue;
+    }
+
+    // Check if line matches any declaration pattern
+    for (const pattern of langPatterns) {
+      if (pattern.test(line)) {
+        // Extract a clean excerpt (first 150 chars, no trailing whitespace)
+        const excerpt = line.trim().substring(0, 150);
+        if (excerpt.length > 10) {  // Skip very short matches
+          excerpts.push(excerpt);
+        }
+        break;
+      }
+    }
+
+    // Limit total excerpts to avoid bloating the index
+    if (excerpts.length >= 50) break;
+  }
+
+  return excerpts;
 }
 
 /**
@@ -361,6 +433,9 @@ export async function extractCodeFacts(
       contentHash
     );
 
+    // S344: Extract raw code excerpts for BM25 matching
+    extraction.rawExcerpts = extractRawExcerpts(content, language);
+
     // Cache the result
     await fs.mkdir(path.dirname(cachePath), { recursive: true });
     await fs.writeFile(cachePath, JSON.stringify(extraction, null, 2));
@@ -429,6 +504,15 @@ export function extractionToIndexableText(extraction: CodeExtraction): string {
 
   if (extraction.patterns.length > 0) {
     parts.push('Patterns: ' + extraction.patterns.join(', '));
+  }
+
+  // S344: Include raw code excerpts for BM25 identifier matching
+  if (extraction.rawExcerpts && extraction.rawExcerpts.length > 0) {
+    parts.push('');
+    parts.push('Code Excerpts:');
+    for (const excerpt of extraction.rawExcerpts) {
+      parts.push(excerpt);
+    }
   }
 
   return parts.join('\n').trim();
