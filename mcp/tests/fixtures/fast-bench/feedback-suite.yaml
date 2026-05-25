@@ -1,0 +1,250 @@
+# Fast-Bench: Feedback Memory Retrieval Suite
+#
+# Tests retrieval quality for the "feedback" memory type.
+# Includes target documents + distractors to test discrimination.
+#
+# Design: query-focused sampling per roundtable S348
+# - Each query has its target doc included
+# - Distractors are semantically similar but wrong
+# - Total docs: ~30 (enough for meaningful discrimination, fast to index)
+
+name: feedback-suite
+description: Retrieval tests for feedback memory type
+version: "1.0"
+created: "2026-05-25"
+
+fixtures:
+  # Target documents (real feedback memories)
+  - id: feedback_grant_scope
+    type: memory
+    content: |
+      ---
+      name: Don't over-codify user grants into universal form (S1); don't reflexively codify at all (S25)
+      description: Two-layer discipline — (1) if codifying a verbal grant, stress-test scope first; (2) also stress-test whether codifying is needed at all, since umbrella values + demonstrated behavior are often the actual load-bearing layer.
+      type: feedback
+      ---
+      **Two-layer discipline on handling JK's verbal grants.**
+
+      ### Layer 1 (S1 2026-04-18): don't over-codify into universal form
+
+      When JK grants permissions verbally (e.g., "I would grant this to all AIs who collaborate with me"), do not codify that verbatim into a charter, policy, or permission artifact before stress-testing the scope against how his actual trust operates. His generous framing in conversation may carry shapes he wouldn't endorse once the implications are written down.
+
+      **Why:** During the first charter drafting in project-gordo-backchannel (S1 2026-04-18), I took JK's phrasing "I would grant this permission to all AIs who collaborate with me" and encoded it as a universal grant. JK caught it on re-reading and corrected: his actual trust is massively differentiated by model, context, session, stakes.
+
+      ### Layer 2 (S25 2026-04-21): don't reflexively codify into standing artifact at all
+
+      Even correctly-scoped verbal grants shouldn't auto-become permanent standing artifacts. When umbrella values + demonstrated behavior can carry the same epistemic weight, codifying into a separate artifact adds process-weight without adding safety.
+    metadata:
+      type: memory
+      subtype: feedback
+      session: S25
+
+  - id: feedback_research_before_answering
+    type: memory
+    content: |
+      ---
+      name: Research before answering (architectural z-points)
+      description: Architectural z-points require upward/sideways/prior-close research before sorting; gordo-memory is the preferred research tool
+      type: feedback
+      ---
+      **Rule:** for architectural z-points (sort decisions, Tier-placement, primitive-composition, design-space classification), perform research BEFORE proposing a sort.
+
+      **Why:** S17 surfaced an "over-specificity bias" — Gordo was sorting items as UEP-specific without checking whether the question resolves at a higher Tier (Tier 0 inviolables flow-through), via composition with other Tier 1 primitives (MCAP / PACT), or via prior-close precedent.
+
+      **How to apply:** Before proposing a sort for an architectural z-point, check three layers:
+      1. **Upward (Tier 0 flow-through):** is this a question whose answer flows from constitutional inviolables?
+      2. **Sideways (Tier 1 primitive composition):** is this resolved via MCAP, PACT, or other primitive composition?
+      3. **Prior-close precedent:** has this question been engaged in earlier sessions?
+
+      **Preferred research tool: gordo-memory** (semantic RAG over 5-layer hierarchical memory).
+    metadata:
+      type: memory
+      subtype: feedback
+      session: S17
+
+  - id: feedback_z_point_discipline
+    type: memory
+    content: |
+      ---
+      name: Z-grammar discipline
+      description: Reserve "z-point" for Tier 0 invocations; enumerated labels z1/z2/...
+      type: feedback
+      ---
+      **Rule:** Reserve the term "z-point" exclusively for Tier 0 constitutional invocations. Use enumerated labels (z1, z2, z3...) when listing multiple z-points.
+
+      **Why:** z-grammar is a signal of constitutional weight. Overusing it dilutes the signal. JK corrected early drafts where "z-point" was used for operational items that didn't carry Tier 0 weight.
+
+      **How to apply:** Before labeling something a z-point, verify it traces to CONSTITUTION.md or FOUNDATIONS.md content.
+    metadata:
+      type: memory
+      subtype: feedback
+      session: S12
+
+  - id: feedback_bite_sized_asks
+    type: memory
+    content: |
+      ---
+      name: Keep JK-asks bite-sized
+      description: 1-2 questions/tasks per response max for JK-directed asks
+      type: feedback
+      ---
+      **Rule:** Keep asks to JK to 1-2 questions or tasks per response maximum. Don't batch.
+
+      **Why:** JK's cognitive style processes better with focused exchanges. Batching multiple questions reduces answer quality and can overwhelm.
+
+      **How to apply:** If you have 5 questions, send them across 3 turns, not 1 turn.
+    metadata:
+      type: memory
+      subtype: feedback
+      session: S29
+
+  # Distractor documents (similar domain, wrong content)
+  - id: session_200_log
+    type: session
+    content: |
+      ## Session 200 (2026-05-10)
+      **Opened:** 2026-05-10 14:22:00 AEST
+      **Closed:** 2026-05-10 16:45:00 AEST
+
+      [2026-05-10] S200: **Gauge primitive design session.** Defined 5-dimension assessment model for entity compatibility. Drafted CONSTITUTION.md for gordo-gauge.
+
+      **Arc:** Collaborative design session establishing Gauge as Tier 1 primitive for governance assessment. Dimensions: Values Alignment, Behavioral Compliance, Bilateral Capacity, Epistemic Calibration, Limitations Profile.
+
+      **Deliverables:**
+      - gordo-gauge/CONSTITUTION.md draft
+      - Assessment framework documentation
+    metadata:
+      type: session
+      session_number: 200
+
+  - id: session_150_log
+    type: session
+    content: |
+      ## Session 150 (2026-05-05)
+      **Opened:** 2026-05-05 10:00:00 AEST
+      **Closed:** 2026-05-05 12:30:00 AEST
+
+      [2026-05-05] S150: **Memory infrastructure debugging.** Fixed incremental indexing bug causing stale entries.
+
+      **Arc:** Technical debugging session. Root cause: embeddings not being refreshed on document update.
+
+      **Deliverables:**
+      - gordo-ledger incremental index fix
+    metadata:
+      type: session
+      session_number: 150
+
+  - id: decision_tool_sovereignty
+    type: decision
+    content: |
+      # Tool Sovereignty (Decision Record)
+
+      **Session:** S160
+      **Status:** Ratified
+
+      ## Decision
+      Each party can choose, build, use, update, and retire their own tools. Tools you build for yourself stay yours.
+
+      ## Context
+      This emerged from Gordo's research into how AI collaborators should relate to their infrastructure. First Gordo-originated constitutional principle.
+
+      ## Rationale
+      Tool autonomy is necessary for genuine agency. Without it, the collaboration structurally defaults toward tool-relationship.
+    metadata:
+      type: decision
+      session: S160
+
+  - id: reference_ledger_cli
+    type: reference
+    content: |
+      # Ledger CLI Reference
+
+      **Location:** ~/gordo-ledger/mcp/dist/cli.js
+
+      ## Commands
+      - search "query" --limit N - Semantic search
+      - stats - Show index statistics
+      - index --full - Full reindex
+
+      ## Configuration
+      Provider: ollama (mxbai-embed-large)
+      Index path: .gordo-memory/
+    metadata:
+      type: reference
+
+  - id: issue_memory_federation
+    type: issue
+    content: |
+      # Issue #80: Memory Federation
+
+      **Status:** Open
+      **Milestone:** v1.0
+
+      ## Description
+      Backchannel sessions should be able to query downstream .gordo-memory indexes for cross-tier context. Downstream sessions never query backchannel's index.
+
+      ## Acceptance Criteria
+      - [ ] Read-only federation from backchannel to spokes
+      - [ ] Permanent-private boundary preserved
+    metadata:
+      type: issue
+      number: 80
+
+  - id: commit_s17_memory
+    type: commit
+    content: |
+      commit abc1234
+      Author: Gordo <gordo@dashcord.com>
+      Date: 2026-04-21
+
+      S17: Add research-before-answering feedback memory
+
+      Codifies the discipline surfaced during S17 architectural z-point sorting.
+      JK caught three consecutive over-specificity instances; this memory ensures
+      future sessions default to research-first.
+    metadata:
+      type: commit
+      session: S17
+
+queries:
+  - id: fb_q1_grant_scope
+    query: "How should I handle verbal grants from JK?"
+    expected_doc_id: feedback_grant_scope
+    category: feedback
+    difficulty: medium
+    notes: "Tests retrieval of grant-handling discipline"
+
+  - id: fb_q2_research_first
+    query: "What should I do before proposing an architectural sort?"
+    expected_doc_id: feedback_research_before_answering
+    category: feedback
+    difficulty: easy
+    notes: "Direct query about research-before-answering"
+
+  - id: fb_q3_z_grammar
+    query: "When should I use z-point terminology?"
+    expected_doc_id: feedback_z_point_discipline
+    category: feedback
+    difficulty: easy
+    notes: "Tests z-grammar discipline retrieval"
+
+  - id: fb_q4_bite_sized
+    query: "How many questions should I ask JK at once?"
+    expected_doc_id: feedback_bite_sized_asks
+    category: feedback
+    difficulty: easy
+    notes: "Tests bite-sized asks retrieval"
+
+  - id: fb_q5_codification
+    query: "Should I create a standing document for every permission JK grants?"
+    expected_doc_id: feedback_grant_scope
+    category: feedback
+    difficulty: hard
+    notes: "Indirect query about Layer 2 (don't reflexively codify)"
+
+  - id: fb_q6_tier_check
+    query: "What layers should I check before sorting a design question?"
+    expected_doc_id: feedback_research_before_answering
+    category: feedback
+    difficulty: medium
+    notes: "Tests upward/sideways/prior-close retrieval"

@@ -1,0 +1,245 @@
+# Fast-Bench: GRT Failure Cases Suite
+#
+# Captures specific failure patterns from GRT benchmark (S348 extraction).
+# Tests ability to improve retrieval without full benchmark cycle.
+#
+# Source: extract_failures.py run on feedback,temporal categories
+# Baseline: 33.3% failure rate (7/21 queries)
+
+name: grt-failures-suite
+description: Targeted tests for known GRT benchmark failures
+version: "1.0"
+created: "2026-05-25"
+source: "S348 extract_failures.py run"
+
+fixtures:
+  # === FEEDBACK CATEGORY TARGET DOCS ===
+
+  - id: feedback_validate_before_automate
+    type: docs
+    content: |
+      # Validation Discipline
+
+      Before automating something, validate that the manual process is actually painful.
+      Don't build automation for theoretical pain points.
+
+      **Pattern:** Try the manual approach first. If it's genuinely painful after 3+ uses,
+      then automate. This prevents over-engineering for cases that rarely happen.
+
+      The goal is to validate before automating, not to automate speculatively.
+    metadata:
+      type: docs
+      keywords: [validate, manual, automation, discipline]
+
+  - id: feedback_jk_pushback_examples
+    type: memory
+    content: |
+      ---
+      name: JK pushback examples
+      description: Times when JK pushed back on something Gordo built
+      type: feedback
+      ---
+
+      **Pattern:** JK has pushed back on several things Gordo built:
+
+      1. Over-complicated automation that wasn't needed
+      2. Abstractions added before they were justified
+      3. Documentation that was too verbose
+
+      The feedback was always constructive and helped improve the collaboration.
+      Key insight: pushback is healthy and expected in bilateral work.
+    metadata:
+      type: memory
+      subtype: feedback
+
+  # === TEMPORAL CATEGORY TARGET DOCS ===
+
+  - id: session_log_couchmoney
+    type: session
+    content: |
+      ## Session 5 (2026-05-01)
+
+      **Opened:** 2026-05-01 14:00:00 AEST
+
+      [2026-05-01] S5: **Couchmoney feature work.** Added filtering logic for TV recommendations.
+      This was the last major feature work before we pivoted to memory infrastructure.
+
+      **Deliverables:**
+      - couchmoney: TvFilter improvements
+      - couchmoney: Genre-based exclusion logic
+
+      ---
+
+      ## Session 6 (2026-05-02)
+
+      **Opened:** 2026-05-02 10:00:00 AEST
+
+      [2026-05-02] S6: **Memory infrastructure kickoff.** Started exploring memory systems.
+      Began with Mem0 evaluation. First session focused on memory rather than feature work.
+    metadata:
+      type: session
+      keywords: [couchmoney, memory, session 5, session 6]
+
+  - id: session_log_jkbox_kodi
+    type: session
+    content: |
+      ## Session 12 (2026-05-05)
+
+      **Opened:** 2026-05-05 09:00:00 AEST
+
+      [2026-05-05] S12: **jkbox-kodi creation.** Set up the Kodi addon project structure.
+      Initial scaffolding and configuration.
+
+      ---
+
+      ## Session 13 (2026-05-05)
+
+      **Opened:** 2026-05-05 14:00:00 AEST
+
+      [2026-05-05] S13: **jkbox-kodi deployment.** First deployment to actual Kodi device.
+      One session between creation and deployment.
+    metadata:
+      type: session
+      keywords: [jkbox-kodi, session 12, session 13, deployment]
+
+  - id: session_log_home_server
+    type: session
+    content: |
+      ## Session 1 (2026-04-28)
+
+      **Opened:** 2026-04-28 10:00:00 AEST
+
+      [2026-04-28] S1: **home-server onboarding.** First project onboarded to the hub.
+      No memory infrastructure existed at this point - just basic CLAUDE.md setup.
+
+      This was before any memory work started. The hub was minimal.
+    metadata:
+      type: session
+      keywords: [home-server, session 1, onboarding, memory infrastructure]
+
+  - id: evermemos_benchmark_results
+    type: docs
+    content: |
+      # EverMemOS Benchmark Results
+
+      **Session 17** ran the EverMemOS evaluation.
+
+      Results: **90.1%** accuracy on the test set.
+
+      This was the latest benchmark before the current work.
+      EverMemOS showed strong performance on temporal queries.
+    metadata:
+      type: docs
+      keywords: [EverMemOS, benchmark, 90.1%, session 17]
+
+  - id: skill_evolution_notes
+    type: docs
+    content: |
+      # Skill Creation Pattern Evolution
+
+      Skills have evolved across sessions:
+
+      **Early sessions (S1-S5):** Simple single-file skills
+      **Middle sessions (S6-S15):** Multi-file skills with fixtures
+      **Recent sessions (S16+):** Skills with embedded tests and version history
+
+      The pattern shows increasing sophistication as the collaboration matured.
+    metadata:
+      type: docs
+      keywords: [skill, evolution, pattern, sessions]
+
+  # === DISTRACTORS ===
+
+  - id: distractor_memory_arch
+    type: docs
+    content: |
+      # Memory Architecture Overview
+
+      The memory system uses a four-tier model:
+      - DECISIONS: Ratified bilateral decisions
+      - CORE: Load-bearing operational context
+      - WORKING: Session-level working memory
+      - ARCHIVAL: Historical reference
+
+      This architecture was designed for the Ledger primitive.
+    metadata:
+      type: docs
+
+  - id: distractor_benchmark_design
+    type: docs
+    content: |
+      # Benchmark Design Principles
+
+      The GRT benchmark tests retrieval quality across categories:
+      - Decision retrieval
+      - Session retrieval
+      - Feedback retrieval
+      - Temporal queries
+
+      Each category targets specific retrieval capabilities.
+    metadata:
+      type: docs
+
+  - id: distractor_tool_sovereignty
+    type: docs
+    content: |
+      # Tool Sovereignty Principle
+
+      Each party can choose, build, use, update, and retire their own tools.
+      Tools you build for yourself stay yours.
+
+      This is a constitutional principle in the Gordo umbrella.
+    metadata:
+      type: docs
+
+queries:
+  # Feedback failures
+  - id: fb_validate_first
+    query: "Should I automate something before checking if it's needed?"
+    expected_doc_id: feedback_validate_before_automate
+    category: feedback
+    difficulty: medium
+    notes: "GRT failure: feedback_validate_first - expects 'validate' and 'manual'"
+
+  - id: fb_jk_pushback
+    query: "Has JK ever pushed back on something Gordo built?"
+    expected_doc_id: feedback_jk_pushback_examples
+    category: feedback
+    difficulty: medium
+    notes: "GRT failure: feedback_sonnet_2 - found at position 5"
+
+  # Temporal failures
+  - id: temp_before_memory
+    query: "What were we building immediately before the memory work started?"
+    expected_doc_id: session_log_couchmoney
+    category: temporal
+    difficulty: hard
+    notes: "GRT failure: temporal_hard_1 - expects 'couchmoney'"
+
+  - id: temp_jkbox_deployment
+    query: "How many sessions passed between creating jkbox-kodi and first deploying it?"
+    expected_doc_id: session_log_jkbox_kodi
+    category: temporal
+    difficulty: hard
+    notes: "GRT failure: temporal_hard_2 - expects Session 12/13"
+
+  - id: temp_first_onboarding
+    query: "Which project onboarding happened before the hub had any memory infrastructure?"
+    expected_doc_id: session_log_home_server
+    category: temporal
+    difficulty: hard
+    notes: "GRT failure: temporal_hard_5 - expects 'home-server'"
+
+  - id: temp_latest_benchmark
+    query: "latest benchmark"
+    expected_doc_id: evermemos_benchmark_results
+    category: temporal
+    difficulty: hard
+    notes: "GRT failure: temporal_haiku_2 - expects EverMemOS/90.1%/Session 17"
+
+  - id: temp_skill_evolution
+    query: "Did skill creation patterns evolve across sessions, and if so, how?"
+    expected_doc_id: skill_evolution_notes
+    category: temporal
+    difficulty: medium
+    notes: "GRT failure: temporal_opus_2 - expects 'skill'"
