@@ -315,12 +315,39 @@ export function createHNSWIndexer(config: HNSWConfig) {
       const queryTokens = tokenize(queryText);
       const bm25Scores = computeBM25Scores(queryTokens);
 
-      // Dynamic hybrid weighting based on query length (#108)
+      // Dynamic hybrid weighting based on query length (#108) and content type (S344)
       // Short queries (≤2 words): Favor BM25 keyword matching (0.3 dense + 0.7 BM25)
       // Longer queries (>2 words): Favor semantic dense search (0.7 dense + 0.3 BM25)
+      // Code-related queries: Boost BM25 to catch exact identifier matches (S344)
       const queryWords = queryTokens.length;
-      const denseWeight = queryWords <= 2 ? 0.3 : 0.7;
-      const bm25Weight = queryWords <= 2 ? 0.7 : 0.3;
+      const queryLower = queryText.toLowerCase();
+      const isCodeQuery = /\b(class|function|method|variable|field|interface|constant|module|import|export|struct|enum|type)\b/i.test(queryLower);
+
+      let denseWeight: number;
+      let bm25Weight: number;
+
+      // S344: Detect if query contains potential code identifiers
+      // Filter out common sentence-start words to find actual identifiers
+      const commonWords = new Set(['What', 'Where', 'When', 'Why', 'How', 'Which', 'Who', 'The', 'A', 'An', 'This', 'That', 'These', 'Those', 'If', 'For', 'In', 'On', 'At', 'To', 'Is', 'Are', 'Was', 'Were', 'Be', 'Been', 'Can', 'Could', 'Would', 'Should', 'Do', 'Does', 'Did', 'Will']);
+      const capitalizedMatches = queryText.match(/\b[A-Z][a-zA-Z]*\b/g) || [];
+      const identifiers = capitalizedMatches.filter(m => !commonWords.has(m));
+      const hasIdentifiers = identifiers.length > 0;
+
+      if (isCodeQuery && hasIdentifiers) {
+        // S344: Strong BM25 boost when query has both code terms AND identifiers
+        denseWeight = 0.3;
+        bm25Weight = 0.7;
+      } else if (isCodeQuery) {
+        // S344: Code queries benefit from BM25 for exact identifier matching
+        denseWeight = 0.5;
+        bm25Weight = 0.5;
+      } else if (queryWords <= 2) {
+        denseWeight = 0.3;
+        bm25Weight = 0.7;
+      } else {
+        denseWeight = 0.7;
+        bm25Weight = 0.3;
+      }
 
       // Hybrid merge with dynamic weighting
       const hybridResults = denseCandidates.map(candidate => {
@@ -330,7 +357,19 @@ export function createHNSWIndexer(config: HNSWConfig) {
 
         // Fix #138: Apply hierarchical content weighting boost
         const contentType = candidate!.doc.metadata.contentType;
-        const boost = getContentTypeBoost(contentType);
+        let boost = getContentTypeBoost(contentType);
+
+        // S344: Path-based identifier matching boost for code queries
+        // If query identifiers appear in the file path, boost the result
+        if (isCodeQuery && hasIdentifiers && identifiers.length > 0) {
+          const docId = candidate!.id.toLowerCase();
+          const pathMatches = identifiers.filter(id => docId.includes(id.toLowerCase()));
+          if (pathMatches.length > 0) {
+            // 15% boost per matching identifier, capped at 45%
+            boost *= 1 + Math.min(pathMatches.length * 0.15, 0.45);
+          }
+        }
+
         const boostedScore = hybridScore * boost;
 
         return {

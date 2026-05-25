@@ -121,7 +121,7 @@ For each significant function/method:
 ## Classes/Types
 For each class, interface, or type:
 - NAME: purpose
-  - key fields: field1, field2
+  - key fields: field1, field2 (IMPORTANT: include actual variable names like moviesById, userMap, etc.)
   - key methods: method1, method2
 
 ## Constants/Config
@@ -185,16 +185,44 @@ function parseExtractionResponse(
         }
       }
     } else if (header.startsWith('class') || header.startsWith('type')) {
-      // Parse class facts
-      const classLines = content.split('\n').filter(l => l.startsWith('-'));
-      for (const line of classLines) {
-        const match = line.match(/^-\s*(\w+):\s*(.+)$/);
-        if (match) {
-          extraction.classes.push({
-            name: match[1],
-            purpose: match[2],
-          });
+      // Parse class facts with optional indented fields/methods (S344)
+      const lines = content.split('\n');
+      let currentClass: ClassFact | null = null;
+
+      for (const line of lines) {
+        // Main class line: "- NAME: purpose"
+        const classMatch = line.match(/^-\s*(\w+):\s*(.+)$/);
+        if (classMatch) {
+          if (currentClass) {
+            extraction.classes.push(currentClass);
+          }
+          currentClass = {
+            name: classMatch[1],
+            purpose: classMatch[2],
+            fields: [],
+            methods: [],
+          };
+        } else if (currentClass && line.trim().startsWith('-')) {
+          // Indented line: "  - key fields: field1, field2" or "  - key methods: ..."
+          const fieldsMatch = line.match(/key\s*fields?:\s*(.+)/i);
+          const methodsMatch = line.match(/key\s*methods?:\s*(.+)/i);
+
+          if (fieldsMatch) {
+            // Parse comma-separated field names
+            const fieldNames = fieldsMatch[1].split(',').map(f => f.trim()).filter(f => f);
+            currentClass.fields = currentClass.fields || [];
+            currentClass.fields.push(...fieldNames);
+          } else if (methodsMatch) {
+            // Parse comma-separated method names
+            const methodNames = methodsMatch[1].split(',').map(m => m.trim()).filter(m => m);
+            currentClass.methods = currentClass.methods || [];
+            currentClass.methods.push(...methodNames);
+          }
         }
+      }
+      // Don't forget the last class
+      if (currentClass) {
+        extraction.classes.push(currentClass);
       }
     } else if (header.startsWith('constant') || header.startsWith('config')) {
       // Parse constant facts: "- NAME = VALUE: meaning"
@@ -372,6 +400,13 @@ export function extractionToIndexableText(extraction: CodeExtraction): string {
     parts.push('Classes/Types:');
     for (const cls of extraction.classes) {
       parts.push(`- ${cls.name}: ${cls.purpose}`);
+      // S344: Include fields and methods in indexable text for better BM25 matching
+      if (cls.fields && cls.fields.length > 0) {
+        parts.push(`  Fields: ${cls.fields.join(', ')}`);
+      }
+      if (cls.methods && cls.methods.length > 0) {
+        parts.push(`  Methods: ${cls.methods.join(', ')}`);
+      }
     }
     parts.push('');
   }
