@@ -315,12 +315,12 @@ export function createHNSWIndexer(config: HNSWConfig) {
       const queryTokens = tokenize(queryText);
       const bm25Scores = computeBM25Scores(queryTokens);
 
-      // Dynamic hybrid weighting based on query length (#108)
-      // Short queries (≤2 words): Favor BM25 keyword matching (0.3 dense + 0.7 BM25)
-      // Longer queries (>2 words): Favor semantic dense search (0.7 dense + 0.3 BM25)
+      // Dynamic hybrid weighting based on query length (#108, S349 sweep)
+      // Short queries (≤3 words): Favor BM25 keyword matching (0.3 dense + 0.7 BM25)
+      // Longer queries (>3 words): Favor semantic dense search (0.7 dense + 0.3 BM25)
       const queryWords = queryTokens.length;
-      const denseWeight = queryWords <= 2 ? 0.3 : 0.7;
-      const bm25Weight = queryWords <= 2 ? 0.7 : 0.3;
+      const denseWeight = queryWords <= 3 ? 0.3 : 0.7;
+      const bm25Weight = queryWords <= 3 ? 0.7 : 0.3;
 
       // Hybrid merge with dynamic weighting
       const hybridResults = denseCandidates.map(candidate => {
@@ -603,7 +603,7 @@ export function createHNSWIndexer(config: HNSWConfig) {
     const scores = new Map<string, number>();
 
     // BM25 parameters
-    const k1 = 1.5;
+    const k1 = 1.2;  // S349 sweep: +11pp R@1 on backchannel
     const b = 0.75;
 
     for (const [docId, docTokens] of bm25Index.documents.entries()) {
