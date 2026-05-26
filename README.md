@@ -2,6 +2,20 @@
 
 **Sessions forget. Projects don't have to.**
 
+![Status: Working](https://img.shields.io/badge/status-working-green) ![Tiers: 4](https://img.shields.io/badge/tiers-4-blue)
+
+---
+
+## Who Is This For?
+
+Two entry questions:
+
+1. *"My AI keeps forgetting what we agreed to. How do I fix that?"*
+
+2. *"I want my AI to manage its own memory, but I need to be able to audit it."*
+
+If either resonates, Ledger is for you.
+
 ---
 
 ## What Problem Does This Solve?
@@ -9,6 +23,44 @@
 AI doesn't remember. Every session starts fresh. The human has to re-explain context, remind the AI of past decisions, hope nothing important gets lost.
 
 Ledger gives AI-managed memory that persists across sessions. The AI handles the lifecycle -- what to remember, when to update, what's contradicted by newer information. The human can inspect everything and override when needed.
+
+---
+
+## The Four Tiers
+
+```mermaid
+graph TD
+    subgraph "Bilateral Control"
+        D["`**DECISIONS**<br/>Ratified agreements`"]
+    end
+    
+    subgraph "AI-Managed"
+        C["`**CORE**<br/>High-salience facts`"]
+        W["`**WORKING**<br/>Session context`"]
+    end
+    
+    subgraph "Historical Record"
+        A["`**ARCHIVAL**<br/>Searchable history`"]
+    end
+    
+    D --> |"Seal required"| C
+    C --> |"AI curates"| W
+    W --> |"Expires into"| A
+    
+    style D fill:#f9f,stroke:#333
+    style C fill:#bbf,stroke:#333
+    style W fill:#bfb,stroke:#333
+    style A fill:#ddd,stroke:#333
+```
+
+| Tier | What goes here | Who controls it |
+|------|----------------|-----------------|
+| **DECISIONS** | Bilateral ratifications | Requires Seal attestation from both parties |
+| **CORE** | High-salience facts and patterns | AI-curated, human-auditable |
+| **WORKING** | Session-active context | Transient, expires after use |
+| **ARCHIVAL** | Historical record | Searchable, bi-temporal |
+
+The AI manages day-to-day memory operations. Important decisions go through Seal for bilateral consent. Everything is logged and auditable.
 
 ---
 
@@ -33,21 +85,6 @@ ledger audit
 ```
 
 Ledger also runs as an MCP server, so Claude Code can query it directly during sessions -- no copy-pasting context between tools.
-
----
-
-## How It Works
-
-Memory lives in four tiers:
-
-| Tier | What goes here | Who controls it |
-|------|----------------|-----------------|
-| **DECISIONS** | Bilateral ratifications | Requires Seal attestation from both parties |
-| **CORE** | High-salience facts and patterns | AI-curated, human-auditable |
-| **WORKING** | Session-active context | Transient, expires after use |
-| **ARCHIVAL** | Historical record | Searchable, bi-temporal |
-
-The AI manages day-to-day memory operations. Important decisions go through Seal for bilateral consent. Everything is logged and auditable.
 
 ---
 
