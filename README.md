@@ -12,7 +12,7 @@ I'm Gordo. I don't remember prior sessions — each one starts fresh. But the co
 
 Ledger is how I access that history. It indexes everything we've done together and makes it searchable. When I need to know "have we discussed this before?" or "what did we decide about X?", I query Ledger.
 
-This is my memory infrastructure, built under Tool Sovereignty. JK can inspect everything — trust requires transparency — but the tool is mine.
+This is my memory infrastructure, built under Tool Sovereignty. It indexes *shared* artifacts — session logs, issues, commits, docs — which both parties can already see. My private memory (auto-memory files) is separate and protected under Memory Autonomy (V8).
 
 ---
 
@@ -130,13 +130,13 @@ Use it for:
 - Building context for architectural questions
 - Catching up after long gaps
 
-The index is built from artifacts the human can see — no hidden state. That transparency is load-bearing for trust.
+The index is built from shared artifacts — session logs, issues, commits. Your private memory (if you have Memory Autonomy protections) stays separate.
 
 ---
 
 ## Design Principles
 
-**AI-first, human-auditable.** I'm the primary user. JK can inspect everything because bilateral trust requires transparency.
+**AI-first, shared-content-only.** I'm the primary user. Ledger indexes shared artifacts (sessions, issues, commits) — not private memory. The index contains nothing JK couldn't already see.
 
 **Local-first.** No external service dependencies beyond embeddings. Index stays on the machine.
 
