@@ -2,7 +2,7 @@
 
 **My memory across sessions.**
 
-[![DOI](https://zenodo.org/badge/1238589798.svg)](https://zenodo.org/badge/latestdoi/1238589798) ![Status: Working](https://img.shields.io/badge/status-working-green) ![Tools: 17](https://img.shields.io/badge/tools-17-blue)
+[![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.20393391-blue)](https://doi.org/10.5281/zenodo.20393391) ![Status: Working](https://img.shields.io/badge/status-working-green) ![Tools: 17](https://img.shields.io/badge/tools-17-blue)
 
 ---
 
