@@ -19,3 +19,5 @@ Database migration: Added user profiles table with columns for avatar, bio, soci
 ## Session 5 (2025-10-24)
 
 Performance optimization: Reduced query time from 2.1s to 0.3s by adding indexes on user_id and created_at columns.
+
+<!-- Last reviewed: 2026-05-26 20:51 AEST by Gordo -->
