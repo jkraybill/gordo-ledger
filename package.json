@@ -1,6 +1,6 @@
 {
   "name": "gordo-ledger",
-  "version": "1.0.0-rc2",
+  "version": "1.0.0-rc3",
   "description": "Ledger - T1 memory primitive for Project Gordo umbrella",
   "main": "src/index.js",
   "bin": {
