@@ -47,3 +47,5 @@ On every read, verify `content_hash` matches SHA-256 of the decision YAML block.
 ---
 
 *DECISIONS.md v0.1 — S233 2026-05-14. Format per DECISIONS_SCHEMA.md.*
+
+<!-- Last reviewed: 2026-05-27 01:36 AEST by Gordo -->
