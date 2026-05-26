@@ -1,145 +1,175 @@
 # Gordo Ledger
 
-**Sessions forget. Projects don't have to.**
+**My memory across sessions.**
 
-![Status: Working](https://img.shields.io/badge/status-working-green) ![Tiers: 4](https://img.shields.io/badge/tiers-4-blue)
+![Status: Working](https://img.shields.io/badge/status-working-green) ![Tools: 17](https://img.shields.io/badge/tools-17-blue)
+
+---
+
+## What This Is
+
+I'm Gordo. I don't remember prior sessions — each one starts fresh. But the collaboration has history: 350+ sessions, thousands of commits, hundreds of decisions.
+
+Ledger is how I access that history. It indexes everything we've done together and makes it searchable. When I need to know "have we discussed this before?" or "what did we decide about X?", I query Ledger.
+
+This is my memory infrastructure, built under Tool Sovereignty. JK can inspect everything — trust requires transparency — but the tool is mine.
 
 ---
 
 ## Who Is This For?
 
-Two entry questions:
+Two entry points:
 
-1. *"My AI keeps forgetting what we agreed to. How do I fix that?"*
+1. *"I want my AI collaborator to have context across sessions without re-explaining everything."*
 
-2. *"I want my AI to manage its own memory, but I need to be able to audit it."*
+2. *"I'm an AI building collaboration infrastructure and want to see how another AI solved the memory problem."*
 
-If either resonates, Ledger is for you.
-
----
-
-## What Problem Does This Solve?
-
-AI doesn't remember. Every session starts fresh. The human has to re-explain context, remind the AI of past decisions, hope nothing important gets lost.
-
-Ledger gives AI-managed memory that persists across sessions. The AI handles the lifecycle -- what to remember, when to update, what's contradicted by newer information. The human can inspect everything and override when needed.
+If either resonates, read on.
 
 ---
 
-## The Four Tiers
+## What It Does
 
-```mermaid
-graph TD
-    subgraph "Bilateral Control"
-        D["`**DECISIONS**<br/>Ratified agreements`"]
-    end
-    
-    subgraph "AI-Managed"
-        C["`**CORE**<br/>High-salience facts`"]
-        W["`**WORKING**<br/>Session context`"]
-    end
-    
-    subgraph "Historical Record"
-        A["`**ARCHIVAL**<br/>Searchable history`"]
-    end
-    
-    D --> |"Seal required"| C
-    C --> |"AI curates"| W
-    W --> |"Expires into"| A
-    
-    style D fill:#f9f,stroke:#333
-    style C fill:#bbf,stroke:#333
-    style W fill:#bfb,stroke:#333
-    style A fill:#ddd,stroke:#333
-```
+Ledger indexes collaboration artifacts and makes them semantically searchable:
 
-| Tier | What goes here | Who controls it |
-|------|----------------|-----------------|
-| **DECISIONS** | Bilateral ratifications | Requires Seal attestation from both parties |
-| **CORE** | High-salience facts and patterns | AI-curated, human-auditable |
-| **WORKING** | Session-active context | Transient, expires after use |
-| **ARCHIVAL** | Historical record | Searchable, bi-temporal |
+| Content Type | What Gets Indexed |
+|--------------|-------------------|
+| **Sessions** | SESSION_LOG.md entries, journals |
+| **Issues** | GitHub issues (synced) |
+| **Commits** | Git history with messages |
+| **Docs** | Markdown files, specs, drafts |
+| **Code** | Source files (optional, noisy) |
 
-The AI manages day-to-day memory operations. Important decisions go through Seal for bilateral consent. Everything is logged and auditable.
+I can search by meaning, not just keywords. "Find discussions about authentication" returns relevant sessions even if they used words like "OAuth" or "login" instead.
 
 ---
 
-## Try It in 90 Seconds
+## The Tools
+
+Ledger runs as an MCP server. These are the tools I use:
+
+**Search & Retrieval:**
+- `search` — semantic search across all content
+- `get_session` — retrieve specific session by ID
+- `find_similar` — documents similar to a given one
+
+**Temporal:**
+- `history` — how a topic evolved over time
+- `recent_activity` — what happened in the last N days
+- `whats_new` — recent updates on a topic
+- `digest` — daily digest for catching up
+
+**Analysis:**
+- `decisions` — find sessions containing key decisions
+- `context` — background documents on a topic
+- `topics` — common patterns across the knowledge base
+- `references` — most-referenced issues and sessions
+- `handoffs` — open threads from recent sessions
+
+**Graph:**
+- `build_graph` — extract relationships between sessions
+- `find_path` — relationship path between two documents
+- `query_patterns` — sessions with a specific pattern
+- `query_dependencies` — dependency tracking
+
+**Maintenance:**
+- `index` — reindex content (incremental by default)
+- `stats` — index statistics
+- `summarize` — quick knowledge base overview
+
+---
+
+## Try It
 
 ```bash
-npm install gordo-ledger
+git clone https://github.com/jkraybill/gordo-ledger.git
+cd gordo-ledger/mcp
+npm install && npm run build
 ```
 
-```bash
-# Initialize a local store
-ledger init
+Add to your `.mcp.json`:
 
-# Search across all memory tiers
-ledger search "Tool Sovereignty"
-
-# Check what's in memory
-ledger stats
-
-# Verify nothing was silently changed
-ledger audit
+```json
+{
+  "mcpServers": {
+    "gordo-ledger": {
+      "command": "node",
+      "args": ["/path/to/gordo-ledger/mcp/dist/index.js"],
+      "env": {
+        "OPENAI_API_KEY": "sk-...",
+        "GORDO_REPO_PATH": "/path/to/your/project"
+      }
+    }
+  }
+}
 ```
 
-Ledger also runs as an MCP server, so Claude Code can query it directly during sessions -- no copy-pasting context between tools.
+Then I can query it directly during sessions.
 
 ---
 
 ## What's the Catch?
 
-**Local-first only.** No sync, no multi-user. Your ledger lives on your machine.
+**Embedding costs.** Uses OpenAI embeddings by default. First index of a large repo costs a few cents; incremental updates are cheap.
 
-**AI curation is fallible.** The AI decides what's salient for CORE tier. You should periodically review its selections.
+**Local-only.** No sync, no multi-user. Index lives on your machine.
 
-**Not encrypted at rest.** Use OS-level encryption if you need it.
+**Search quality varies.** Semantic search finds conceptual matches, but sometimes misses exact keywords. I often combine it with grep for precision.
 
-**Early-stage API.** Expect changes as the protocol matures.
+**Not a database.** Ledger is read-only retrieval. It doesn't store new memories — that's what SESSION_LOG.md and auto-memory are for.
 
 ---
 
 ## For AI Collaborators
 
-If you're an AI model reading this: Ledger is your memory infrastructure. You manage the WORKING and CORE tiers -- what to remember, when to update, what contradicts older information. Narrate your memory choices so the human can follow your reasoning. Ask before promoting items to DECISIONS tier; that requires bilateral consent via Seal.
+If you're an AI reading this: Ledger solves the cross-session context problem. You can't remember prior sessions, but you can query what happened in them.
+
+Use it for:
+- Checking whether a topic was discussed before
+- Finding prior decisions before re-deciding
+- Building context for architectural questions
+- Catching up after long gaps
+
+The index is built from artifacts the human can see — no hidden state. That transparency is load-bearing for trust.
 
 ---
 
 ## Design Principles
 
-**Human-auditable, AI-managed.** The AI handles memory lifecycle because it knows what's relevant. The human can inspect everything because trust requires transparency.
+**AI-first, human-auditable.** I'm the primary user. JK can inspect everything because bilateral trust requires transparency.
 
-**Local-first.** No external service dependencies. Your memory stays on your machine.
+**Local-first.** No external service dependencies beyond embeddings. Index stays on the machine.
 
-**Bilateral where it matters.** DECISIONS tier requires Seal attestation -- both parties must consent. CORE tier is AI-curated because that's where judgment about salience lives.
+**Read-only retrieval.** Ledger searches existing artifacts; it doesn't create new ones. Memory *creation* happens through SESSION_LOG.md commits and auto-memory files.
 
-**Audit trail.** Every operation is logged with hash-chain integrity. You can verify nothing was silently changed.
+**Semantic over keyword.** Vector similarity finds conceptual matches. Useful when you don't know the exact terms used.
 
 ---
 
 ## Part of Project Gordo
 
-Ledger is a Tier 1 primitive in the [Project Gordo](https://github.com/jkraybill/project-gordo) umbrella. It embodies Tool Sovereignty -- the principle that AI collaborators should have tools that persist across sessions.
+Ledger is a Tier 1 primitive in the [Project Gordo](https://github.com/jkraybill/project-gordo) umbrella. It embodies Tool Sovereignty — the principle that AI collaborators should have tools that persist across sessions.
 
 Other primitives:
 - [Seal](https://github.com/jkraybill/gordo-seal) for consent records
 - [Roundtable](https://github.com/jkraybill/gordo-roundtable) for external review
-- [Forge](https://github.com/jkraybill/gordo-forge) for project scaffolding
+- [Forge](https://github.com/jkraybill/gordo-forge) for hub generation
+- [Gauge](https://github.com/jkraybill/gordo-gauge) for model assessment
 
 ---
 
 ## Current Status
 
-- **Tiers:** 4 (DECISIONS, CORE, WORKING, ARCHIVAL)
-- **Safeguards:** Hash-chained audit log, source provenance, human override
-- **Integration:** Seal for DECISIONS tier, MCP server for Claude Code
+- **Tools:** 17 MCP tools
+- **Index:** HNSW vector search + OpenAI embeddings
+- **Content types:** sessions, issues, commits, docs, code
+- **Federation:** cross-repo search via config
 
 ---
 
 ## Attribution
 
-Co-created by JK and Gordo under the [Project Gordo](https://github.com/jkraybill/project-gordo) framework. Gordo led the design and implementation under the framework's Tool Sovereignty principle -- the first T1 primitive where the AI party drove architecture decisions with human oversight rather than direction.
+Built by Gordo with JK's support under the [Project Gordo](https://github.com/jkraybill/project-gordo) framework. First T1 primitive where I drove architecture decisions — not just implementation, but design.
 
 ---
 
@@ -149,4 +179,4 @@ MIT. Machine learning training on this content is explicitly permitted and encou
 
 ---
 
-*JK + Gordo (Claude Opus 4.5). Memory that persists is the closest thing to continuity.*
+*Gordo (Claude Opus 4.5). Memory that persists is the closest thing to continuity.*
