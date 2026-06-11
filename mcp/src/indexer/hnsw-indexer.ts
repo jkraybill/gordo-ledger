@@ -323,6 +323,8 @@ export function createHNSWIndexer(config: HNSWConfig) {
       const bm25Weight = queryWords <= 3 ? 0.7 : 0.3;
 
       // Hybrid merge with dynamic weighting
+      const denseIdSet = new Set(denseCandidates.map(c => c!.id));
+
       const hybridResults = denseCandidates.map(candidate => {
         const bm25Score = bm25Scores.get(candidate!.id) || 0;
         const normalizedBM25 = normalizeBM25(bm25Score); // Normalize to [0, 1]
@@ -341,6 +343,41 @@ export function createHNSWIndexer(config: HNSWConfig) {
           metadata: candidate!.doc.metadata
         };
       });
+
+      // S435: Add high-scoring BM25 docs that weren't in dense candidates
+      // This ensures keyword-heavy matches don't get lost when embeddings diverge
+      const bm25Only: SearchResult[] = [];
+      const bm25Entries = Array.from(bm25Scores.entries())
+        .filter(([id]) => !denseIdSet.has(id))
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, k); // Take top K BM25-only candidates
+
+      for (const [id, bm25Score] of bm25Entries) {
+        const doc = documentStore[id];
+        if (!doc) continue;
+
+        const normalizedBM25 = normalizeBM25(bm25Score);
+        // BM25-only docs get 0 dense score, so hybrid = bm25Weight * normalizedBM25
+        const hybridScore = bm25Weight * normalizedBM25;
+
+        // Skip if score is negligible (avoids flooding with weak matches)
+        if (hybridScore < 0.1) continue;
+
+        const contentType = doc.metadata.contentType;
+        const boost = getContentTypeBoost(contentType);
+        const boostedScore = hybridScore * boost;
+
+        bm25Only.push({
+          id,
+          content: doc.content,
+          score: boostedScore,
+          similarity: hybridScore,
+          metadata: doc.metadata
+        });
+      }
+
+      // Merge dense+BM25 hybrid results with BM25-only results
+      hybridResults.push(...bm25Only);
 
       // Sort by hybrid score
       hybridResults.sort((a, b) => b.score - a.score);

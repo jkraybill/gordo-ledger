@@ -120,11 +120,20 @@ export async function rerank(
     const scores: number[] = data.scores || [];
 
     // Combine reranker scores with original results
-    const reranked: RerankResult[] = toRerank.map((result, i) => ({
-      ...result,
-      originalScore: result.score,
-      score: scores[i] ?? result.score, // Use reranker score as primary
-    }));
+    // S435: Blend reranker score with original (0.6 reranker + 0.4 original)
+    // Pure reranker was ignoring strong BM25 matches (e.g., "Seal" appearing 13x)
+    const RERANKER_WEIGHT = 0.6;
+    const ORIGINAL_WEIGHT = 0.4;
+
+    const reranked: RerankResult[] = toRerank.map((result, i) => {
+      const rerankerScore = scores[i] ?? result.score;
+      const blendedScore = RERANKER_WEIGHT * rerankerScore + ORIGINAL_WEIGHT * result.score;
+      return {
+        ...result,
+        originalScore: result.score,
+        score: blendedScore,
+      };
+    });
 
     // Sort by reranker score
     reranked.sort((a, b) => b.score - a.score);
