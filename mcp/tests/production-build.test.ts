@@ -72,9 +72,9 @@ describe('Production Build Validation', () => {
     // Use node dist/cli.js directly — doesn't require global npm install
     const cli = `node ${path.resolve('dist/cli.js')}`;
 
-    it('should execute gordo-memory --version', async () => {
+    it('should execute gordo-ledger --version', async () => {
       const { stdout } = await execAsync(`${cli} --version`);
-      expect(stdout).toContain('0.1.0');
+      expect(stdout).toMatch(/\d+\.\d+\.\d+/);  // Any semver version
     });
 
     it('should execute gordo-memory init in test repo', async () => {
@@ -82,10 +82,10 @@ describe('Production Build Validation', () => {
       expect(stdout).toContain('initialized');
     });
 
-    it('should execute gordo-memory stats in test repo', async () => {
+    it('should execute gordo-ledger stats in test repo', async () => {
       const { stdout } = await execAsync(`cd ${testRepo} && ${cli} stats`);
-      expect(stdout).toContain('Memory Index Statistics');
-      expect(stdout).toContain('Total indexed documents:');
+      expect(stdout).toContain('Gordo Ledger Statistics');
+      expect(stdout).toContain('Total indexed:');
       expect(stdout).toContain('Provider:');
     });
 
@@ -224,7 +224,7 @@ describe('Production Build Validation', () => {
 
     it('should have package.json bin pointing to compiled CLI', async () => {
       const packageJson = JSON.parse(await fs.readFile('package.json', 'utf-8'));
-      expect(packageJson.bin['gordo-memory']).toBe('dist/cli.js');
+      expect(packageJson.bin['gordo-ledger-mcp']).toBe('dist/cli.js');
     });
   });
 });

@@ -69,6 +69,23 @@ We decided to switch from custom token storage to Redis for better reliability. 
       expect(extractor).toBeDefined();
     });
 
+    it('should create extractor with OpenRouter provider', () => {
+      const extractor = new RelationshipExtractor({
+        provider: 'openrouter',
+        apiKey: 'test-key'
+      });
+
+      expect(extractor).toBeDefined();
+    });
+
+    it('should throw error if OpenRouter provider without API key', () => {
+      expect(() => {
+        new RelationshipExtractor({
+          provider: 'openrouter'
+        });
+      }).toThrow(/API key/i);
+    });
+
     it('should throw error if OpenAI provider without API key', () => {
       expect(() => {
         new RelationshipExtractor({
