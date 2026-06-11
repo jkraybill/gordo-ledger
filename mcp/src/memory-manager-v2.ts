@@ -455,7 +455,12 @@ export class MemoryManager {
     const threshold = options.threshold || this.config.threshold;
 
     // Retrieve more candidates for reranking (3x limit, min 20)
-    const retrieveLimit = Math.max(limit * 3, 20);
+    // S435: When contentTypes filter is specified, retrieve 10x to ensure enough
+    // results survive filtering (e.g., searching for sessions in a docs-heavy index)
+    const hasContentTypeFilter = options.contentTypes && options.contentTypes.length > 0;
+    const retrieveLimit = hasContentTypeFilter
+      ? Math.max(limit * 10, 100)  // Aggressive oversampling for filtered queries
+      : Math.max(limit * 3, 20);
 
     let hnswResults = await this.indexer.hybridSearch(
       queryEmbedding,

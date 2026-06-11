@@ -364,6 +364,39 @@ Test details extended with new EOS narrative content that did not exist at first
         expect(hasExcluded).toBe(false);
       }
     }, 30000);
+
+    // S435: contentTypes filter should return enough results even when
+    // the requested type is a minority in the index. Pre-fix, the filter
+    // was applied AFTER slicing to limit, so if you asked for 20 sessions
+    // but the top 20 HNSW results were mostly docs, you'd get fewer than
+    // expected. Fix: oversample 10x when contentTypes is specified.
+    it('should return sufficient results when filtering by contentTypes', async () => {
+      // Create a mixed-type index: 1 session + many docs
+      await fs.mkdir(path.join(testRepoPath, 'docs'), { recursive: true });
+      for (let i = 1; i <= 10; i++) {
+        await fs.writeFile(
+          path.join(testRepoPath, 'docs', `doc${i}.md`),
+          `# Documentation ${i}\n\nThis is test documentation about patterns and features.\n`
+        );
+      }
+
+      // Reindex to include docs
+      await manager.reindex(testRepoPath);
+
+      // Search for something that matches both session and docs
+      const results = await manager.search({
+        query: 'test pattern',
+        limit: 5,
+        contentTypes: ['session']
+      });
+
+      // Should find the session even though docs likely rank higher
+      // (session has "test pattern" in it)
+      const hasSession = results.some(r =>
+        r.contentType === 'session' || r.sessionId?.includes('Session')
+      );
+      expect(hasSession).toBe(true);
+    }, 60000);
   });
 
   describe('Session Retrieval', () => {
