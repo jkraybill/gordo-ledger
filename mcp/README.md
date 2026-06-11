@@ -2,7 +2,7 @@
 
 **Five-Layer Memory** for Project Gordo umbrella - semantic search across sessions, issues, commits, docs, and code.
 
-*Migrated from gordo-framework/mcp-servers/gordo-memory S240. CLI commands and index directory (.gordo-memory/) unchanged for backwards compatibility.*
+*Migrated to standalone repository S240. CLI commands and index directory (.gordo-memory/) unchanged for backwards compatibility.*
 
 ## Five-Layer Memory Architecture (Recommended)
 
@@ -164,11 +164,11 @@ Add `OPENAI_API_KEY` to env:
 \`\`\`json
 {
   "mcpServers": {
-    "gordo-memory": {
+    "gordo-ledger": {
       "command": "node",
-      "args": ["/ABSOLUTE/PATH/TO/gordo-framework/mcp-servers/gordo-memory/dist/index.js"],
+      "args": ["/home/youruser/gordo-ledger/mcp/dist/index.js"],
       "env": {
-        "NODE_PATH": "/ABSOLUTE/PATH/TO/gordo-framework/mcp-servers/gordo-memory/node_modules",
+        "NODE_PATH": "/home/youruser/gordo-ledger/mcp/node_modules",
         "OPENAI_API_KEY": "sk-..."
       }
     }
@@ -214,13 +214,13 @@ If MCP tools don't appear after restart:
 
 4. **Verify dist/index.js exists:**
    \`\`\`bash
-   ls ~/gordo-framework/mcp-servers/gordo-memory/dist/index.js
-   # If missing: cd mcp-servers/gordo-memory && npm run build
+   ls ~/gordo-ledger/mcp/dist/index.js
+   # If missing: cd ~/gordo-ledger/mcp && npm run build
    \`\`\`
 
 5. **Test MCP server directly:**
    \`\`\`bash
-   node ~/gordo-framework/mcp-servers/gordo-memory/dist/index.js
+   node ~/gordo-ledger/mcp/dist/index.js
    # Should output: "Gordo Memory MCP server running on stdio"
    # Press Ctrl+C to exit
    \`\`\`
@@ -726,10 +726,10 @@ Initial indexing (first time, full index):
 - **Cause:** CLI not linked globally
 - **Fix:**
   \`\`\`bash
-  cd ~/gordo-framework/mcp-servers/gordo-memory
+  cd ~/gordo-ledger/mcp
   npm link  # Make gordo-memory globally available
   \`\`\`
-- **Alternative:** Use full path: `/path/to/gordo-framework/mcp-servers/gordo-memory/dist/cli.js`
+- **Alternative:** Use full path: `~/gordo-ledger/mcp/dist/cli.js`
 
 **"CLI says indexed but MCP search doesn't find it"**
 - **Cause 1 (pre-v0.9.1):** MCP server cached stale index in memory
@@ -762,7 +762,7 @@ Initial indexing (first time, full index):
 
 **"Unknown embedding model: mxbai-embed-large:latest"**
 - **Cause:** Model tag normalization issue (fixed in Session 44)
-- **Fix:** Update to latest gordo-framework version
+- **Fix:** Update to latest gordo-ledger version
 - **Workaround:** Use `mxbai-embed-large` (without `:latest` suffix)
 
 **OpenAI tests failing**
@@ -781,7 +781,7 @@ gordo-memory search "query" --verbose  # Detailed output
 \`\`\`
 
 **Report issues:**
-- GitHub: https://github.com/jkraybill/gordo-framework/issues
+- GitHub: https://github.com/jkraybill/gordo-ledger/issues
 - Include: OS, Node version, error message, `gordo-memory stats` output
 
 ## License

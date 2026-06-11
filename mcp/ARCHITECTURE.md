@@ -1,6 +1,6 @@
 # gordo-memory Architecture
 
-**Five-Layer Memory:** Built for gordo-framework with hierarchical context indexing.
+**Five-Layer Memory:** Built for Project Gordo umbrella with hierarchical context indexing.
 
 ---
 
@@ -525,7 +525,7 @@ mcp-servers/gordo-memory/
 **Why explicit non-goals matter:**
 - Prevents scope creep
 - Keeps implementation simple
-- Focuses on gordo-framework's EXACT needs
+- Focuses on Project Gordo collaboration needs
 - Avoids generic RAG bloat
 
 ---
