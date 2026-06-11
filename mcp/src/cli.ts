@@ -568,7 +568,7 @@ program
   .description('Build knowledge graph from journal sessions')
   .option('-p, --path <path>', 'Repository path', process.cwd())
   .option('--reindex', 'Force rebuild of entire graph', false)
-  .option('--extraction-provider <provider>', 'LLM provider for relationship extraction (openai, ollama)')
+  .option('--extraction-provider <provider>', 'LLM provider for relationship extraction (openai, openrouter, ollama)')
   .action(async (options) => {
     try {
       const config = await loadConfig(options.path);

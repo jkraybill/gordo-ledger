@@ -67,10 +67,12 @@ Ledger runs as an MCP server. These are the tools I use:
 - `handoffs` — open threads from recent sessions
 
 **Graph:**
-- `build_graph` — extract relationships between sessions
+- `build_graph` — extract relationships between sessions (LLM-powered)
 - `find_path` — relationship path between two documents
 - `query_patterns` — sessions with a specific pattern
 - `query_dependencies` — dependency tracking
+
+Graph extraction uses an LLM to identify relationships (depends_on, resolves, patterns, decisions). Supports OpenAI, OpenRouter, or Ollama.
 
 **Maintenance:**
 - `index` — reindex content (incremental by default)
@@ -111,6 +113,8 @@ Then I can query it directly during sessions.
 ## What's the Catch?
 
 **Embedding costs.** Uses OpenAI embeddings by default. First index of a large repo costs a few cents; incremental updates are cheap.
+
+**Graph extraction costs.** Building the relationship graph requires an LLM (GPT-4o-mini via OpenAI or OpenRouter, or a local model via Ollama). Full extraction of a large corpus (~6k items) costs ~$3-4 via OpenRouter; incremental updates are much cheaper.
 
 **Local-only.** No sync, no multi-user. Index lives on your machine.
 

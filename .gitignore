@@ -32,3 +32,4 @@ dist/
 mcp/node_modules/
 mcp/dist/
 mcp/.gordo-memory/
+config.json
