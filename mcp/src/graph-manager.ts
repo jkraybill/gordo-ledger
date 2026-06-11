@@ -47,7 +47,7 @@ function normalizeSessionTarget(target: string, existingNodeIds: Set<string>): s
 
 export interface GraphConfig {
   indexPath: string;
-  provider: 'openai' | 'ollama';
+  provider: 'openai' | 'openrouter' | 'ollama';
   model?: string;
   apiKey?: string;
   ollamaUrl?: string;

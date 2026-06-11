@@ -45,9 +45,10 @@ Return ONLY the JSON object, no markdown formatting, no explanation.`;
  * Configuration for extraction
  */
 export interface ExtractorConfig {
-  provider: 'openai' | 'ollama';
+  provider: 'openai' | 'openrouter' | 'ollama';
   model?: string;  // Model to use for extraction
-  apiKey?: string; // OpenAI API key (if provider = 'openai')
+  apiKey?: string; // OpenAI/OpenRouter API key
+  baseUrl?: string; // Custom base URL (for OpenRouter compatibility)
   ollamaUrl?: string; // Ollama base URL (if provider = 'ollama')
   temperature?: number; // LLM temperature (default: 0.1 for consistency)
 }
@@ -65,11 +66,15 @@ export class RelationshipExtractor {
       ...config
     };
 
-    if (this.config.provider === 'openai') {
+    if (this.config.provider === 'openai' || this.config.provider === 'openrouter') {
       if (!this.config.apiKey) {
-        throw new Error('OpenAI API key required when provider is "openai"');
+        throw new Error(`API key required when provider is "${this.config.provider}"`);
       }
-      this.openai = new OpenAI({ apiKey: this.config.apiKey });
+      const openaiConfig: { apiKey: string; baseURL?: string } = { apiKey: this.config.apiKey };
+      if (this.config.provider === 'openrouter') {
+        openaiConfig.baseURL = this.config.baseUrl || 'https://openrouter.ai/api/v1';
+      }
+      this.openai = new OpenAI(openaiConfig);
     }
   }
 
@@ -85,7 +90,7 @@ export class RelationshipExtractor {
 
       let responseText: string;
 
-      if (this.config.provider === 'openai') {
+      if (this.config.provider === 'openai' || this.config.provider === 'openrouter') {
         responseText = await this.extractWithOpenAI(prompt);
       } else {
         responseText = await this.extractWithOllama(prompt);

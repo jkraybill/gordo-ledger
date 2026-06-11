@@ -33,8 +33,8 @@ async function validatePath(targetPath: string): Promise<void> {
   }
 }
 
-async function loadConfig(repoPath: string): Promise<MemoryConfig> {
-  const DEFAULT_CONFIG: MemoryConfig = {
+async function loadConfig(repoPath: string): Promise<MemoryConfig & { openrouterApiKey?: string }> {
+  const DEFAULT_CONFIG: MemoryConfig & { openrouterApiKey?: string } = {
     enabled: true,
     provider: 'ollama',
     model: 'mxbai-embed-large',
@@ -42,6 +42,7 @@ async function loadConfig(repoPath: string): Promise<MemoryConfig> {
     indexPath: path.join(repoPath, '.gordo-memory'),
     autoIndex: true,
     openaiApiKey: process.env.OPENAI_API_KEY,
+    openrouterApiKey: process.env.OPENROUTER_API_KEY,
   };
 
   try {
@@ -567,6 +568,7 @@ program
   .description('Build knowledge graph from journal sessions')
   .option('-p, --path <path>', 'Repository path', process.cwd())
   .option('--reindex', 'Force rebuild of entire graph', false)
+  .option('--extraction-provider <provider>', 'LLM provider for relationship extraction (openai, ollama)')
   .action(async (options) => {
     try {
       const config = await loadConfig(options.path);
@@ -584,11 +586,21 @@ program
       const sessions = await manager.getAllSessions();
 
       // Initialize graph manager
+      // Extraction provider can differ from embedding provider (e.g., ollama embeddings + openrouter extraction)
+      const extractionProvider = options.extractionProvider || config.provider;
+      const extractionApiKey = extractionProvider === 'openrouter'
+        ? config.openrouterApiKey
+        : config.openaiApiKey;
+      const extractionModel = extractionProvider === 'openrouter'
+        ? 'openai/gpt-4o-mini'  // OpenRouter model path
+        : extractionProvider === 'openai'
+          ? 'gpt-4o-mini'
+          : config.model;
       const graphManager = new GraphManager({
         indexPath: config.indexPath,
-        provider: config.provider as 'openai' | 'ollama',
-        model: config.model,
-        apiKey: config.openaiApiKey,
+        provider: extractionProvider as 'openai' | 'openrouter' | 'ollama',
+        model: extractionModel,
+        apiKey: extractionApiKey,
         ollamaUrl: 'http://localhost:11434'
       });
 
