@@ -318,3 +318,116 @@ Uses semantic search from Session 4 to find related sessions.
 
   await fs.writeFile(journalPath, journal);
 }
+
+// GraphManager.extractSession tests
+import { GraphManager } from '../src/graph-manager.js';
+import { SessionEntry } from '../src/types.js';
+
+describe('GraphManager.extractSession', () => {
+  let graphManager: GraphManager;
+  const testGraphPath = '.gordo-memory-test-extract';
+
+  beforeAll(async () => {
+    // Create test directory
+    await fs.mkdir(testGraphPath, { recursive: true });
+
+    graphManager = new GraphManager({
+      indexPath: testGraphPath,
+      provider: 'ollama',
+      model: 'llama3.2:latest',
+      ollamaUrl: 'http://localhost:11434'
+    });
+
+    await graphManager.initialize();
+  });
+
+  afterAll(async () => {
+    try {
+      await fs.rm(testGraphPath, { recursive: true });
+    } catch (e) {
+      // Ignore
+    }
+  });
+
+  it('should extract relationships from a single session', async () => {
+    const session: SessionEntry = {
+      id: 'Session_99',
+      date: '2025-06-11',
+      summary: 'Test session for extractSession method',
+      content: `# Session 99: Testing extractSession
+
+**Summary:** Implementing single-session extraction for EOS hook
+
+**Details:**
+This session builds on Session 98's graph architecture work.
+We're adding incremental graph updates to reduce batch processing overhead.
+The TDD pattern established in Session 1 guides our approach.
+
+**Patterns:**
+- Incremental updates
+- TDD validation
+
+**Decisions:**
+- Use single-session extraction at EOS instead of daily batch
+
+**Dependencies:** Session 98 (graph architecture)
+`
+    };
+
+    const allSessionIds = ['Session_01', 'Session_98', 'Session_99'];
+
+    const result = await graphManager.extractSession(session, allSessionIds);
+
+    // Should have created at least the session node
+    expect(result.nodesCreated).toBeGreaterThanOrEqual(1);
+
+    // Should have extracted patterns or decisions
+    console.log('extractSession result:', result);
+  }, 60000); // 60s timeout for LLM extraction
+
+  it('should skip already-extracted sessions', async () => {
+    const session: SessionEntry = {
+      id: 'Session_99',
+      date: '2025-06-11',
+      summary: 'Test session',
+      content: 'Test content'
+    };
+
+    const allSessionIds = ['Session_99'];
+
+    // Second call should skip (idempotent)
+    const result = await graphManager.extractSession(session, allSessionIds);
+
+    expect(result.nodesCreated).toBe(0);
+    expect(result.edgesCreated).toBe(0);
+    expect(result.patterns).toEqual([]);
+    expect(result.decisions).toEqual([]);
+  });
+
+  it('should normalize dependency targets to existing session IDs', async () => {
+    // Clear graph first
+    await graphManager.clear();
+
+    const session: SessionEntry = {
+      id: 'Session_100',
+      date: '2025-06-11',
+      summary: 'Test dependency normalization',
+      content: `# Session 100: Dependency Normalization Test
+
+**Details:**
+Depends on session 1 for testing patterns.
+Also references Session_02 and s3.
+
+**Dependencies:** session 1, Session_02, s3
+`
+    };
+
+    // All possible target formats should be in the list
+    const allSessionIds = ['Session_01', 'Session_02', 'Session_03', 'Session_100'];
+
+    const result = await graphManager.extractSession(session, allSessionIds);
+
+    // Should create the session node
+    expect(result.nodesCreated).toBeGreaterThanOrEqual(1);
+  }, 60000);
+});

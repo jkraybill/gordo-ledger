@@ -1,6 +1,6 @@
 {
   "name": "@gordo/ledger-mcp",
-  "version": "1.0.0-rc11",
+  "version": "1.0.0-rc12",
   "description": "Semantic memory search MCP server for Gordo Ledger",
   "type": "module",
   "main": "dist/index.js",

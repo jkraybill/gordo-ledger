@@ -634,6 +634,76 @@ program
   });
 
 program
+  .command('extract-session')
+  .description('Extract relationships for a single session and add to graph (EOS hook)')
+  .argument('<sessionId>', 'Session ID (e.g., Session_435)')
+  .option('-p, --path <path>', 'Repository path', process.cwd())
+  .option('--extraction-provider <provider>', 'LLM provider for relationship extraction (openai, openrouter, ollama)')
+  .action(async (sessionId, options) => {
+    try {
+      const config = await loadConfig(options.path);
+
+      // Check if initialized
+      const initialized = await checkInitialized(config.indexPath);
+      if (!initialized) {
+        throw new Error('gordo-ledger not initialized\n\nRun: gordo-ledger init');
+      }
+
+      const manager = new MemoryManager(config);
+      await manager.initialize();
+
+      // Get all sessions for target normalization
+      const allSessions = await manager.getAllSessions();
+      const allSessionIds = allSessions.map(s => s.id);
+
+      // Find the target session
+      const targetSession = allSessions.find(s => s.id === sessionId);
+      if (!targetSession) {
+        throw new Error(`Session not found: ${sessionId}`);
+      }
+
+      // Initialize graph manager
+      const extractionProvider = options.extractionProvider || config.provider;
+      const extractionApiKey = extractionProvider === 'openrouter'
+        ? config.openrouterApiKey
+        : config.openaiApiKey;
+      const extractionModel = extractionProvider === 'openrouter'
+        ? 'openai/gpt-4o-mini'
+        : extractionProvider === 'openai'
+          ? 'gpt-4o-mini'
+          : config.model;
+      const graphManager = new GraphManager({
+        indexPath: config.indexPath,
+        provider: extractionProvider as 'openai' | 'openrouter' | 'ollama',
+        model: extractionModel,
+        apiKey: extractionApiKey,
+        ollamaUrl: 'http://localhost:11434'
+      });
+
+      await graphManager.initialize();
+
+      console.log(`Extracting relationships for ${sessionId}...`);
+
+      const result = await graphManager.extractSession(targetSession, allSessionIds);
+
+      if (result.nodesCreated === 0 && result.edgesCreated === 0) {
+        console.log(`✓ Session ${sessionId} already in graph (skipped)`);
+      } else {
+        console.log(`✓ Added ${sessionId} to graph: ${result.nodesCreated} nodes, ${result.edgesCreated} edges`);
+        if (result.patterns.length > 0) {
+          console.log(`  Patterns: ${result.patterns.join(', ')}`);
+        }
+        if (result.decisions.length > 0) {
+          console.log(`  Decisions: ${result.decisions.join(', ')}`);
+        }
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      process.exit(1);
+    }
+  });
+
+program
   .command('query-dependencies')
   .description('Get sessions that a given session depends on')
   .argument('<sessionId>', 'Session ID (e.g., Session_01)')

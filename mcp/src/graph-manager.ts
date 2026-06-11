@@ -417,4 +417,170 @@ export class GraphManager {
       edgeCount: stats.edgeCount
     };
   }
+
+  /**
+   * Extract relationships for a single session and add to graph
+   * Designed for incremental updates at EOS (end of session)
+   * @param session Single session to extract
+   * @param allSessionIds All known session IDs for target normalization
+   * @returns Extraction results
+   */
+  async extractSession(
+    session: SessionEntry,
+    allSessionIds: string[]
+  ): Promise<{
+    nodesCreated: number;
+    edgesCreated: number;
+    patterns: string[];
+    decisions: string[];
+  }> {
+    if (!this.initialized) {
+      await this.initialize();
+    }
+
+    const sessionId = session.id;
+    let nodesCreated = 0;
+    let edgesCreated = 0;
+    const patterns: string[] = [];
+    const decisions: string[] = [];
+
+    // Check if session already exists
+    if (this.graph.getNode(sessionId)) {
+      return { nodesCreated: 0, edgesCreated: 0, patterns: [], decisions: [] };
+    }
+
+    // Build set of known node IDs for normalizing LLM-extracted targets
+    const knownNodeIds = new Set<string>(allSessionIds);
+
+    // Extract metadata
+    const metadata = this.extractor.extractSessionMetadata(session.content, sessionId);
+
+    // Extract relationships using LLM
+    const extraction = await this.extractor.extract(session.content, sessionId);
+
+    // Create session node
+    const sessionNode: SessionNode = {
+      id: sessionId,
+      type: 'session',
+      created: metadata.created!,
+      date: metadata.date!,
+      title: metadata.title!,
+      summary: metadata.summary!,
+      outcomes: extraction.outcomes.map(o => o.outcome),
+      patterns: extraction.patterns.map(p => p.pattern)
+    };
+
+    this.graph.addNode(sessionNode);
+    nodesCreated++;
+
+    // Add dependency edges
+    for (const dep of extraction.dependencies) {
+      const normalizedTarget = normalizeSessionTarget(dep.target, knownNodeIds);
+      const depEdge: Edge = {
+        id: `edge_depends_${sessionId}_${normalizedTarget}`,
+        type: 'depends_on',
+        source: sessionId,
+        target: normalizedTarget,
+        metadata: { reason: dep.reason },
+        created: sessionNode.date
+      };
+
+      this.graph.addEdge(depEdge);
+      edgesCreated++;
+    }
+
+    // Add resolution edges
+    for (const res of extraction.resolutions) {
+      const normalizedTarget = normalizeSessionTarget(res.target, knownNodeIds);
+      const resEdge: Edge = {
+        id: `edge_resolves_${sessionId}_${normalizedTarget}`,
+        type: 'resolves',
+        source: sessionId,
+        target: normalizedTarget,
+        metadata: { reason: res.reason },
+        created: sessionNode.date
+      };
+
+      this.graph.addEdge(resEdge);
+      edgesCreated++;
+    }
+
+    // Track patterns
+    for (const pattern of extraction.patterns) {
+      if (!pattern.pattern || typeof pattern.pattern !== 'string') {
+        continue;
+      }
+
+      const patternId = `pattern_${pattern.pattern.toLowerCase().replace(/\s+/g, '_')}`;
+      patterns.push(pattern.pattern);
+
+      const existingPattern = this.graph.getNode(patternId);
+      if (!existingPattern) {
+        const patternNode: PatternNode = {
+          id: patternId,
+          type: 'pattern',
+          created: sessionNode.date,
+          name: pattern.pattern,
+          description: pattern.description,
+          firstSeen: sessionId,
+          occurrences: 1,
+          trend: 'recurring'
+        };
+
+        this.graph.addNode(patternNode);
+        nodesCreated++;
+      }
+
+      // Add edge from session to pattern
+      const patternEdge: Edge = {
+        id: `edge_pattern_${sessionId}_${patternId}`,
+        type: 'introduces_pattern',
+        source: sessionId,
+        target: patternId,
+        created: sessionNode.date
+      };
+
+      this.graph.addEdge(patternEdge);
+      edgesCreated++;
+    }
+
+    // Track decisions
+    let decisionIdx = 0;
+    for (const decision of extraction.decisions) {
+      if (!decision.decision || typeof decision.decision !== 'string') {
+        continue;
+      }
+
+      decisionIdx++;
+      const decisionId = `decision_${sessionId}_${decisionIdx}`;
+      decisions.push(decision.decision);
+
+      const decisionNode: DecisionNode = {
+        id: decisionId,
+        type: 'decision',
+        created: sessionNode.date,
+        sessionId,
+        title: decision.decision,
+        rationale: decision.rationale,
+        expectedImpact: decision.expectedImpact
+      };
+
+      this.graph.addNode(decisionNode);
+      nodesCreated++;
+
+      // Add edge from session to decision
+      const decisionEdge: Edge = {
+        id: `edge_decision_${sessionId}_${decisionId}`,
+        type: 'introduces_pattern',
+        source: sessionId,
+        target: decisionId,
+        created: sessionNode.date
+      };
+
+      this.graph.addEdge(decisionEdge);
+      edgesCreated++;
+    }
+
+    return { nodesCreated, edgesCreated, patterns, decisions };
+  }
 }
