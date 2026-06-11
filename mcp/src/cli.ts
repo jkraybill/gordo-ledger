@@ -1333,4 +1333,147 @@ program
     }
   });
 
+program
+  .command('reclassify-graph')
+  .description('Reclassify existing graph nodes by type (session/issue/artifact/commit)')
+  .option('-p, --path <path>', 'Repository path', process.cwd())
+  .option('--dry-run', 'Show what would change without modifying', false)
+  .action(async (options) => {
+    try {
+      const config = await loadConfig(options.path);
+
+      const initialized = await checkInitialized(config.indexPath);
+      if (!initialized) {
+        console.error('Error: gordo-ledger not initialized');
+        process.exit(1);
+      }
+
+      // Import classifier dynamically to avoid circular deps
+      const { classifyNode, getClassificationStats, classifyNodes } = await import('./graph/classifier.js');
+      const { TinyGraph } = await import('./graph/store.js');
+
+      const graphPath = path.join(config.indexPath, 'graph.json');
+      const graph = new TinyGraph(graphPath, !options.dryRun);
+      graph.load();
+
+      const stats = graph.getStats();
+      console.log(`Current graph: ${stats.nodeCount} nodes, ${stats.edgeCount} edges`);
+
+      // Get all node IDs
+      const allNodes = Array.from({ length: stats.nodeCount }, (_, i) => {
+        // This is a hack - we need to iterate the nodes
+        return '';
+      });
+
+      // Actually iterate nodes from the graph
+      const nodeIds: string[] = [];
+      const nodeData = new Map<string, { current: string; recommended: string; shouldExtract: boolean }>();
+
+      // Read graph.json directly to get all node IDs
+      const fs = await import('fs');
+      const graphJson = JSON.parse(fs.readFileSync(graphPath, 'utf-8'));
+
+      for (const [id, node] of Object.entries(graphJson.nodes as Record<string, { type: string }>)) {
+        nodeIds.push(id);
+        const classification = classifyNode(id);
+        if (node.type !== classification.nodeType) {
+          nodeData.set(id, {
+            current: node.type,
+            recommended: classification.nodeType,
+            shouldExtract: classification.shouldExtractRelationships
+          });
+        }
+      }
+
+      // Get classification stats
+      const classifications = classifyNodes(nodeIds);
+      const classStats = getClassificationStats(classifications);
+
+      console.log('\nRecommended classification:');
+      for (const [type, count] of Object.entries(classStats.byType)) {
+        if (count > 0) {
+          console.log(`  ${type}: ${count}`);
+        }
+      }
+      console.log(`  (${classStats.shouldExtract} would have relationships extracted)`);
+
+      const needsReclassification = nodeData.size;
+      console.log(`\nNodes needing reclassification: ${needsReclassification}`);
+
+      if (needsReclassification === 0) {
+        console.log('All nodes already correctly classified.');
+        return;
+      }
+
+      // Show sample of changes
+      const samples = Array.from(nodeData.entries()).slice(0, 10);
+      console.log('\nSample changes:');
+      for (const [id, change] of samples) {
+        console.log(`  ${id}: ${change.current} → ${change.recommended}`);
+      }
+      if (nodeData.size > 10) {
+        console.log(`  ... and ${nodeData.size - 10} more`);
+      }
+
+      if (options.dryRun) {
+        console.log('\n(dry run - no changes made)');
+        return;
+      }
+
+      // Apply reclassifications
+      console.log('\nApplying reclassifications...');
+      let updated = 0;
+      for (const [id, change] of nodeData.entries()) {
+        const node = graphJson.nodes[id];
+        if (node) {
+          node.type = change.recommended;
+          updated++;
+        }
+      }
+
+      // Write back
+      fs.writeFileSync(graphPath, JSON.stringify(graphJson, null, 2));
+      console.log(`✓ Reclassified ${updated} nodes`);
+
+    } catch (error) {
+      console.error('Error:', error);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('reload-graph')
+  .description('Reload knowledge graph from disk (for use in scripts or after external modifications)')
+  .option('-p, --path <path>', 'Repository path', process.cwd())
+  .action(async (options) => {
+    try {
+      const config = await loadConfig(options.path);
+
+      const initialized = await checkInitialized(config.indexPath);
+      if (!initialized) {
+        console.error('Error: gordo-ledger not initialized');
+        process.exit(1);
+      }
+
+      const graphManager = new GraphManager({
+        indexPath: config.indexPath,
+        provider: config.provider as 'openai' | 'openrouter' | 'ollama',
+        model: config.model,
+        apiKey: config.openaiApiKey,
+        ollamaUrl: 'http://localhost:11434'
+      });
+
+      // Initialize loads the graph
+      await graphManager.initialize();
+
+      // Reload to pick up any external changes
+      const result = await graphManager.reload();
+
+      console.log(`✓ Reloaded knowledge graph: ${result.nodeCount} nodes, ${result.edgeCount} edges`);
+    } catch (error) {
+      console.error('Error:', error);
+      process.exit(1);
+    }
+  });
+
 program.parse();

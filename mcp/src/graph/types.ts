@@ -4,8 +4,19 @@
 
 /**
  * Node types in the knowledge graph
+ *
+ * Tier 1 (Conceptual - primary query targets):
+ * - session: A deliberative session (BOS→EOS cycle)
+ * - decision: An architectural/strategic commitment
+ * - pattern: A recurring concept (controlled vocabulary)
+ * - issue: A problem encountered or tracked
+ *
+ * Tier 2 (Contextual - secondary, hang off Tier 1):
+ * - artifact: Code, config, doc files (not deliberation sources)
+ * - commit: Git commit (contextual reference)
+ * - outcome: Result achieved (legacy, may deprecate)
  */
-export type NodeType = 'session' | 'pattern' | 'decision' | 'outcome';
+export type NodeType = 'session' | 'pattern' | 'decision' | 'issue' | 'artifact' | 'commit' | 'outcome';
 
 /**
  * Relationship types between nodes
@@ -80,9 +91,41 @@ export interface OutcomeNode extends BaseNode {
 }
 
 /**
+ * Issue node - problem encountered or tracked
+ */
+export interface IssueNode extends BaseNode {
+  type: 'issue';
+  number: number;       // GitHub issue number
+  title: string;
+  status: 'open' | 'closed';
+  resolvedBy?: string;  // session_id that resolved it
+}
+
+/**
+ * Artifact node - code, config, doc files (Tier 2)
+ * These are contextual references, not deliberation sources
+ */
+export interface ArtifactNode extends BaseNode {
+  type: 'artifact';
+  path: string;         // File path
+  artifactType: 'code' | 'config' | 'doc' | 'skill' | 'other';
+  referencedBy?: string[]; // session_ids that reference this
+}
+
+/**
+ * Commit node - git commit (Tier 2)
+ */
+export interface CommitNode extends BaseNode {
+  type: 'commit';
+  sha: string;
+  message: string;
+  sessionId?: string;   // Session that created this commit
+}
+
+/**
  * Union type for all nodes
  */
-export type GraphNode = SessionNode | PatternNode | DecisionNode | OutcomeNode;
+export type GraphNode = SessionNode | PatternNode | DecisionNode | OutcomeNode | IssueNode | ArtifactNode | CommitNode;
 
 /**
  * Edge (relationship) between two nodes

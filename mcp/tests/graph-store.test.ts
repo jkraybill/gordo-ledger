@@ -640,4 +640,200 @@ describe('TinyGraph Store', () => {
       expect(stats.edgeCount).toBe(0);
     });
   });
+
+  describe('Remove Node', () => {
+    it('should remove a node and its edges', () => {
+      // Create 3 sessions with edges
+      for (let i = 1; i <= 3; i++) {
+        graph.addNode({
+          id: `session_${i}`,
+          type: 'session',
+          created: `2025-01-0${i}`,
+          date: `2025-01-0${i}`,
+          title: `Session ${i}`,
+          summary: `Session ${i}`,
+          outcomes: [],
+          patterns: []
+        });
+      }
+
+      // session_1 -> session_2 -> session_3
+      graph.addEdge({
+        id: 'edge_1_2',
+        type: 'follows',
+        source: 'session_1',
+        target: 'session_2',
+        created: '2025-01-02'
+      });
+
+      graph.addEdge({
+        id: 'edge_2_3',
+        type: 'follows',
+        source: 'session_2',
+        target: 'session_3',
+        created: '2025-01-03'
+      });
+
+      // Remove session_2
+      const removed = graph.removeNode('session_2');
+
+      expect(removed).toBe(true);
+      expect(graph.getNode('session_2')).toBeUndefined();
+      // Edges to/from session_2 should be gone
+      expect(graph.getOutgoingEdges('session_1')).toHaveLength(0);
+      expect(graph.getIncomingEdges('session_3')).toHaveLength(0);
+      // Other nodes still exist
+      expect(graph.getNode('session_1')).toBeDefined();
+      expect(graph.getNode('session_3')).toBeDefined();
+    });
+
+    it('should return false for non-existent node', () => {
+      const removed = graph.removeNode('nonexistent');
+      expect(removed).toBe(false);
+    });
+
+    it('should remove all edges connected to the node', () => {
+      // Create a hub-and-spoke pattern: session_1 connected to 2, 3, 4
+      for (let i = 1; i <= 4; i++) {
+        graph.addNode({
+          id: `session_${i}`,
+          type: 'session',
+          created: `2025-01-0${i}`,
+          date: `2025-01-0${i}`,
+          title: `Session ${i}`,
+          summary: `Session ${i}`,
+          outcomes: [],
+          patterns: []
+        });
+      }
+
+      // session_1 -> session_2, session_1 -> session_3, session_4 -> session_1
+      graph.addEdge({ id: 'e1', type: 'follows', source: 'session_1', target: 'session_2', created: '2025-01-02' });
+      graph.addEdge({ id: 'e2', type: 'follows', source: 'session_1', target: 'session_3', created: '2025-01-03' });
+      graph.addEdge({ id: 'e3', type: 'follows', source: 'session_4', target: 'session_1', created: '2025-01-04' });
+
+      // Remove the hub
+      graph.removeNode('session_1');
+
+      // All edges should be gone
+      expect(graph.getIncomingEdges('session_2')).toHaveLength(0);
+      expect(graph.getIncomingEdges('session_3')).toHaveLength(0);
+      expect(graph.getOutgoingEdges('session_4')).toHaveLength(0);
+    });
+
+    it('should remove pattern/decision nodes created by a session', () => {
+      // Session with a pattern
+      graph.addNode({
+        id: 'session_1',
+        type: 'session',
+        created: '2025-01-01',
+        date: '2025-01-01',
+        title: 'Session 1',
+        summary: 'Session 1',
+        outcomes: [],
+        patterns: ['oauth']
+      });
+
+      graph.addNode({
+        id: 'pattern_oauth',
+        type: 'pattern',
+        created: '2025-01-01',
+        name: 'OAuth',
+        description: 'OAuth pattern',
+        firstSeen: 'session_1',
+        occurrences: 1,
+        trend: 'recurring'
+      });
+
+      graph.addEdge({
+        id: 'edge_s1_p1',
+        type: 'introduces_pattern',
+        source: 'session_1',
+        target: 'pattern_oauth',
+        created: '2025-01-01'
+      });
+
+      // Remove session should NOT auto-remove pattern (pattern may be used by other sessions)
+      // But edge should be removed
+      graph.removeNode('session_1');
+
+      expect(graph.getNode('session_1')).toBeUndefined();
+      expect(graph.getNode('pattern_oauth')).toBeDefined(); // Pattern still exists
+      expect(graph.getOutgoingEdges('session_1')).toHaveLength(0);
+    });
+  });
+
+  describe('Reload Graph', () => {
+    it('should reload graph from disk, picking up external changes', () => {
+      // Create graph and save
+      const graph1 = new TinyGraph(testStoragePath, true);
+      graph1.addNode({
+        id: 'session_1',
+        type: 'session',
+        created: '2025-01-01',
+        date: '2025-01-01',
+        title: 'Original Title',
+        summary: 'Test session',
+        outcomes: [],
+        patterns: []
+      });
+      graph1.save();
+
+      // Modify the file directly (simulating reclassify-graph)
+      const graphJson = JSON.parse(fs.readFileSync(testStoragePath, 'utf-8'));
+      graphJson.nodes['session_1'].title = 'Modified Title';
+      graphJson.nodes['session_1'].type = 'artifact'; // Reclassify
+      fs.writeFileSync(testStoragePath, JSON.stringify(graphJson));
+
+      // Reload should pick up changes
+      graph1.reload();
+
+      const reloaded = graph1.getNode('session_1');
+      expect(reloaded).toBeDefined();
+      expect(reloaded?.title).toBe('Modified Title');
+      expect(reloaded?.type).toBe('artifact');
+    });
+
+    it('should clear in-memory state before reloading', () => {
+      const graph1 = new TinyGraph(testStoragePath, true);
+
+      // Add a node only in memory (don't save)
+      graph1.addNode({
+        id: 'memory_only',
+        type: 'session',
+        created: '2025-01-01',
+        date: '2025-01-01',
+        title: 'Memory Only',
+        summary: 'Not persisted',
+        outcomes: [],
+        patterns: []
+      });
+
+      // Save a different node to disk
+      const graphJson = {
+        version: '1.0.0',
+        nodes: {
+          'disk_node': {
+            id: 'disk_node',
+            type: 'session',
+            created: '2025-01-01',
+            date: '2025-01-01',
+            title: 'From Disk',
+            summary: 'Was on disk',
+            outcomes: [],
+            patterns: []
+          }
+        },
+        edges: [],
+        metadata: { created: '2025-01-01', updated: '2025-01-01', nodeCount: 1, edgeCount: 0 }
+      };
+      fs.writeFileSync(testStoragePath, JSON.stringify(graphJson));
+
+      // Reload should replace memory state with disk state
+      graph1.reload();
+
+      expect(graph1.getNode('memory_only')).toBeUndefined();
+      expect(graph1.getNode('disk_node')).toBeDefined();
+    });
+  });
 });

@@ -71,8 +71,22 @@ Ledger runs as an MCP server. These are the tools I use:
 - `find_path` — relationship path between two documents
 - `query_patterns` — sessions with a specific pattern
 - `query_dependencies` — dependency tracking
+- `reclassify-graph` — reclassify nodes by type (CLI only)
 
 Graph extraction uses an LLM to identify relationships (depends_on, resolves, patterns, decisions). Supports OpenAI, OpenRouter, or Ollama.
+
+The graph uses typed nodes to separate conceptual content from artifacts:
+
+| Type | Tier | Description | Extracts relationships? |
+|------|------|-------------|------------------------|
+| `session` | 1 | Deliberative sessions (BOS→EOS) | Yes |
+| `decision` | 1 | Architectural commitments | No (already extracted) |
+| `pattern` | 1 | Recurring concepts (controlled vocab) | No (already extracted) |
+| `issue` | 1 | GitHub issues | Yes |
+| `artifact` | 2 | Code, config, doc files | No |
+| `commit` | 2 | Git commits | No |
+
+Tier 1 nodes are primary query targets. Tier 2 nodes are contextual — they hang off Tier 1 but don't compete in pattern queries.
 
 **Maintenance:**
 - `index` — reindex content (incremental by default)

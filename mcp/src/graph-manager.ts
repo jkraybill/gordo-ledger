@@ -404,4 +404,17 @@ export class GraphManager {
 
     this.graph.clear();
   }
+
+  /**
+   * Reload graph from disk
+   * Use after external modifications (e.g., reclassify-graph CLI)
+   */
+  async reload(): Promise<{ nodeCount: number; edgeCount: number }> {
+    this.graph.reload();
+    const stats = this.querier.getStats();
+    return {
+      nodeCount: stats.nodeCount,
+      edgeCount: stats.edgeCount
+    };
+  }
 }

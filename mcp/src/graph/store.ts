@@ -105,6 +105,51 @@ export class TinyGraph {
   }
 
   /**
+   * Remove a node and all its connected edges
+   * @param nodeId Node ID to remove
+   * @returns true if node was removed, false if it didn't exist
+   */
+  removeNode(nodeId: string): boolean {
+    if (!this.nodes.has(nodeId)) {
+      return false;
+    }
+
+    // Remove all outgoing edges from this node
+    const outgoing = this.edges.get(nodeId) || [];
+    for (const edge of outgoing) {
+      // Remove from target's incoming edges
+      const targetIncoming = this.incomingEdges.get(edge.target) || [];
+      this.incomingEdges.set(
+        edge.target,
+        targetIncoming.filter(e => e.id !== edge.id)
+      );
+    }
+    this.edges.delete(nodeId);
+
+    // Remove all incoming edges to this node
+    const incoming = this.incomingEdges.get(nodeId) || [];
+    for (const edge of incoming) {
+      // Remove from source's outgoing edges
+      const sourceOutgoing = this.edges.get(edge.source) || [];
+      this.edges.set(
+        edge.source,
+        sourceOutgoing.filter(e => e.id !== edge.id)
+      );
+    }
+    this.incomingEdges.delete(nodeId);
+
+    // Remove the node itself
+    this.nodes.delete(nodeId);
+
+    this.dirty = true;
+    if (this.autoSave && !this.batchMode) {
+      this.save();
+    }
+
+    return true;
+  }
+
+  /**
    * Get a node by ID
    */
   getNode(id: string): GraphNode | undefined {
@@ -413,5 +458,20 @@ export class TinyGraph {
     if (this.autoSave) {
       this.save();
     }
+  }
+
+  /**
+   * Reload graph from disk, replacing in-memory state
+   * Use after external modifications (e.g., reclassify-graph)
+   */
+  reload(): void {
+    // Clear in-memory state
+    this.nodes.clear();
+    this.edges.clear();
+    this.incomingEdges.clear();
+    this.dirty = false;
+
+    // Load fresh from disk
+    this.load();
   }
 }

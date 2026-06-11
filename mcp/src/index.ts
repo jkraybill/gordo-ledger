@@ -391,6 +391,14 @@ class GordoLedgerServer {
             },
           },
           {
+            name: 'reload_graph',
+            description: 'Reload knowledge graph from disk (use after reclassify-graph or manual edits)',
+            inputSchema: {
+              type: 'object',
+              properties: {},
+            },
+          },
+          {
             name: 'find_similar',
             description: 'Find documents similar to a given session/document by ID',
             inputSchema: {
@@ -954,6 +962,20 @@ class GordoLedgerServer {
                 {
                   type: 'text',
                   text: `Built knowledge graph: ${result.nodesCreated} nodes, ${result.edgesCreated} edges`,
+                },
+              ],
+            };
+          }
+
+          case 'reload_graph': {
+            const graphManager = await this.getGraphManager();
+            const result = await graphManager.reload();
+
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: `Reloaded knowledge graph from disk: ${result.nodeCount} nodes, ${result.edgeCount} edges`,
                 },
               ],
             };
