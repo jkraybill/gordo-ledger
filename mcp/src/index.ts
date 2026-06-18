@@ -16,14 +16,22 @@ import type { MemoryConfig } from './types.js';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 
+// Detect provider from environment: OpenRouter > OpenAI > Ollama
+function detectProvider(): 'openrouter' | 'openai' | 'ollama' {
+  if (process.env.OPENROUTER_API_KEY) return 'openrouter';
+  if (process.env.OPENAI_API_KEY) return 'openai';
+  return 'ollama';
+}
+
 const DEFAULT_CONFIG: MemoryConfig = {
   enabled: true,
-  provider: 'openai',
+  provider: detectProvider(),
   model: 'text-embedding-3-small',
   threshold: 0.5,
   indexPath: '.gordo-memory',
   autoIndex: true,
   openaiApiKey: process.env.OPENAI_API_KEY,
+  openrouterApiKey: process.env.OPENROUTER_API_KEY,
   indexDocs: true,  // Fix #142: Enable docs indexing by default
   indexCode: false, // Fix #142: Disable code indexing by default (noisy)
 };

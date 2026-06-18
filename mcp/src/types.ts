@@ -4,12 +4,13 @@
 
 export interface MemoryConfig {
   enabled: boolean;
-  provider: 'openai' | 'ollama' | 'local';
+  provider: 'openai' | 'openrouter' | 'ollama' | 'local';
   model: string;
   threshold: number;
   indexPath: string;
   autoIndex: boolean;
   openaiApiKey?: string;
+  openrouterApiKey?: string;
   ollamaUrl?: string;
   hierarchicalBoost?: {
     session?: number;       // Default: 2.0

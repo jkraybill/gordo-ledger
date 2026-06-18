@@ -6,12 +6,13 @@
 import { EmbeddingProvider } from '../types.js';
 
 export interface EmbeddingConfig {
-  type: 'ollama' | 'openai' | 'hybrid';
+  type: 'ollama' | 'openai' | 'openrouter' | 'hybrid';
   model: string;
   ollamaUrl?: string;
   openaiApiKey?: string;
-  primaryType?: 'ollama' | 'openai';
-  fallbackType?: 'ollama' | 'openai';
+  openrouterApiKey?: string;
+  primaryType?: 'ollama' | 'openai' | 'openrouter';
+  fallbackType?: 'ollama' | 'openai' | 'openrouter';
 }
 
 // Model-specific context limits and dimensions
@@ -89,7 +90,8 @@ class OllamaEmbeddingProvider implements EmbeddingProvider {
 class OpenAIEmbeddingProvider implements EmbeddingProvider {
   constructor(
     private model: string,
-    private apiKey: string
+    private apiKey: string,
+    private baseUrl: string = 'https://api.openai.com/v1'
   ) {}
 
   async generateEmbedding(text: string): Promise<number[]> {
@@ -99,7 +101,7 @@ class OpenAIEmbeddingProvider implements EmbeddingProvider {
 
   async generateEmbeddings(texts: string[]): Promise<number[][]> {
     try {
-      const response = await fetch('https://api.openai.com/v1/embeddings', {
+      const response = await fetch(`${this.baseUrl}/embeddings`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -113,13 +115,13 @@ class OpenAIEmbeddingProvider implements EmbeddingProvider {
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(`OpenAI API error: ${JSON.stringify(error)}`);
+        throw new Error(`Embedding API error: ${JSON.stringify(error)}`);
       }
 
       const data = await response.json() as { data: Array<{ embedding: number[] }> };
       return data.data.map(item => item.embedding);
     } catch (error) {
-      throw new Error(`Failed to generate OpenAI embedding: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(`Failed to generate embedding: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 }
@@ -137,12 +139,18 @@ class HybridEmbeddingProvider implements EmbeddingProvider {
     this.fallback = this.createProvider(config.fallbackType, config);
   }
 
-  private createProvider(type: 'ollama' | 'openai', config: EmbeddingConfig): EmbeddingProvider {
+  private createProvider(type: 'ollama' | 'openai' | 'openrouter', config: EmbeddingConfig): EmbeddingProvider {
     if (type === 'ollama') {
       if (!config.ollamaUrl) {
         throw new Error('Ollama provider requires ollamaUrl');
       }
       return new OllamaEmbeddingProvider(config.model, config.ollamaUrl);
+    } else if (type === 'openrouter') {
+      const apiKey = config.openrouterApiKey || process.env.OPENROUTER_API_KEY;
+      if (!apiKey) {
+        throw new Error('OpenRouter provider requires openrouterApiKey');
+      }
+      return new OpenAIEmbeddingProvider(config.model, apiKey, 'https://openrouter.ai/api/v1');
     } else {
       const apiKey = config.openaiApiKey || process.env.OPENAI_API_KEY;
       if (!apiKey) {
@@ -177,7 +185,7 @@ export function createEmbeddingProvider(config: EmbeddingConfig): EmbeddingProvi
     throw new Error('Provider type is required');
   }
 
-  if (!['ollama', 'openai', 'hybrid'].includes(config.type)) {
+  if (!['ollama', 'openai', 'openrouter', 'hybrid'].includes(config.type)) {
     throw new Error(`Unsupported provider type: ${config.type}`);
   }
 
@@ -194,6 +202,15 @@ export function createEmbeddingProvider(config: EmbeddingConfig): EmbeddingProvi
       throw new Error('OpenAI provider requires openaiApiKey or OPENAI_API_KEY environment variable');
     }
     return new OpenAIEmbeddingProvider(config.model, apiKey);
+  }
+
+  if (config.type === 'openrouter') {
+    const apiKey = config.openrouterApiKey || process.env.OPENROUTER_API_KEY;
+    if (!apiKey) {
+      throw new Error('OpenRouter provider requires openrouterApiKey or OPENROUTER_API_KEY environment variable');
+    }
+    // OpenRouter is API-compatible with OpenAI, just different base URL
+    return new OpenAIEmbeddingProvider(config.model, apiKey, 'https://openrouter.ai/api/v1');
   }
 
   if (config.type === 'hybrid') {

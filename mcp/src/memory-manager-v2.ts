@@ -136,9 +136,10 @@ export class MemoryManager {
 
     // Initialize embedding provider
     const embeddingConfig: EmbeddingConfig = {
-      type: config.provider as 'ollama' | 'openai',
+      type: config.provider as 'ollama' | 'openai' | 'openrouter',
       model: config.model,
       openaiApiKey: config.openaiApiKey,
+      openrouterApiKey: config.openrouterApiKey,
       ollamaUrl: config.ollamaUrl || 'http://localhost:11434'
     };
 
