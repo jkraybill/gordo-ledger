@@ -94,7 +94,7 @@ async function saveConfig(repoPath: string, config: Partial<MemoryConfig>): Prom
 program
   .name('gordo-ledger')
   .description('Semantic memory for Gordo umbrella projects')
-  .version('1.0.0-rc1');
+  .version('1.0.0-rc16');
 
 program
   .command('init')

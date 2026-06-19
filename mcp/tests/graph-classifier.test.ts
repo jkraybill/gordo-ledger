@@ -1,6 +1,6 @@
 /**
  * Tests for Node Classifier
- * Part of gordo-ledger MCP Server v1.0.0-rc11
+ * Part of gordo-ledger MCP Server v1.0.0-rc16
  */
 
 import { describe, it, expect } from 'vitest';

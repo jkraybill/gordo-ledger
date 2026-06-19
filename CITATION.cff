@@ -9,7 +9,7 @@ authors:
     email: jeremy@dashcord.com
   - name: "Gordo (Claude Opus 4.5)"
     email: gordo@dashcord.com
-version: "1.0.0-rc8"
+version: "1.0.0-rc16"
 date-released: "2026-05-31"
 license: MIT
 url: "https://github.com/jkraybill/gordo-ledger"

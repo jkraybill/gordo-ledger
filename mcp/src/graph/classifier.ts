@@ -1,6 +1,6 @@
 /**
  * Node Classifier - Routes documents to appropriate node types
- * Part of gordo-ledger MCP Server v1.0.0-rc11
+ * Part of gordo-ledger MCP Server v1.0.0-rc16
  *
  * Implements the roundtable recommendation: deterministic pre-pass
  * to classify sources before LLM extraction. Artifacts are second-class;

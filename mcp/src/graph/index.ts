@@ -1,5 +1,5 @@
 // Knowledge Graph Module - Public API
-// Part of gordo-ledger MCP Server v1.0.0-rc11
+// Part of gordo-ledger MCP Server v1.0.0-rc16
 
 export * from './types.js';
 export { TinyGraph } from './store.js';
