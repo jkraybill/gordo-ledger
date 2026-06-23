@@ -690,6 +690,7 @@ export class MemoryManager {
       date: doc.metadata?.date || '',
       summary: doc.metadata?.summary || '',
       content: doc.text,
+      contentType: doc.metadata?.contentType,
       patterns: doc.metadata?.patterns || [],
       issues: doc.metadata?.issues || [],
       signals: doc.metadata?.signals || []
