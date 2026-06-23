@@ -1416,6 +1416,214 @@ program
   });
 
 program
+  .command('context')
+  .description('Find background/context documents for a topic (oldest first)')
+  .option('-p, --path <path>', 'Repository path', process.cwd())
+  .argument('<topic>', 'Topic to find context for')
+  .option('-l, --limit <number>', 'Maximum results', '5')
+  .action(async (topic, options) => {
+    try {
+      const config = await loadConfig(options.path);
+
+      const initialized = await checkInitialized(config.indexPath);
+      if (!initialized) {
+        console.error('Error: gordo-ledger not initialized');
+        process.exit(1);
+      }
+
+      const manager = new MemoryManager(config);
+      const limit = parseInt(options.limit);
+
+      const results = await manager.search({
+        query: topic,
+        limit: limit * 3,
+        threshold: 0.3,
+      });
+
+      // Sort by date ascending (oldest first) for foundational context
+      const sorted = results
+        .sort((a, b) => (a.date || '').localeCompare(b.date || ''))
+        .slice(0, limit);
+
+      if (sorted.length === 0) {
+        console.log(`No context found for "${topic}"`);
+        return;
+      }
+
+      console.log(`Context for "${topic}" (oldest first):\n`);
+      for (const r of sorted) {
+        const pct = Math.round(r.similarity * 100);
+        const preview = r.content.replace(/\s+/g, ' ').substring(0, 80);
+        console.log(`  [${r.date}] ${pct}% ${r.sessionId} — ${preview}`);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('history')
+  .description('Show how a topic evolved over time (chronological order)')
+  .option('-p, --path <path>', 'Repository path', process.cwd())
+  .argument('<topic>', 'Topic to trace history for')
+  .option('-l, --limit <number>', 'Maximum results', '10')
+  .action(async (topic, options) => {
+    try {
+      const config = await loadConfig(options.path);
+
+      const initialized = await checkInitialized(config.indexPath);
+      if (!initialized) {
+        console.error('Error: gordo-ledger not initialized');
+        process.exit(1);
+      }
+
+      const manager = new MemoryManager(config);
+      const limit = parseInt(options.limit);
+
+      const results = await manager.search({
+        query: topic,
+        limit: limit * 2,
+        threshold: 0.35,
+      });
+
+      // Sort chronologically
+      const sorted = results
+        .sort((a, b) => (a.date || '').localeCompare(b.date || ''))
+        .slice(0, limit);
+
+      if (sorted.length === 0) {
+        console.log(`No history found for "${topic}"`);
+        return;
+      }
+
+      console.log(`History of "${topic}":\n`);
+      for (const r of sorted) {
+        const type = (r as any).contentType?.[0] || '?';
+        const preview = r.content.replace(/\s+/g, ' ').substring(0, 60);
+        console.log(`  ${r.date} [${type}] ${r.sessionId}: ${preview}...`);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('recent-activity')
+  .description('Show recent activity across all content types')
+  .option('-p, --path <path>', 'Repository path', process.cwd())
+  .option('-d, --days <number>', 'Number of days to look back', '7')
+  .option('-l, --limit <number>', 'Maximum items to return', '20')
+  .action(async (options) => {
+    try {
+      const config = await loadConfig(options.path);
+
+      const initialized = await checkInitialized(config.indexPath);
+      if (!initialized) {
+        console.error('Error: gordo-ledger not initialized');
+        process.exit(1);
+      }
+
+      const manager = new MemoryManager(config);
+      const days = parseInt(options.days);
+      const limit = parseInt(options.limit);
+
+      const sessions = await manager.getAllSessions();
+
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - days);
+      const cutoffStr = cutoff.toISOString().split('T')[0];
+
+      // Filter to recent and sort by date desc
+      const recent = sessions
+        .filter(s => s.date >= cutoffStr)
+        .sort((a, b) => b.date.localeCompare(a.date))
+        .slice(0, limit);
+
+      if (recent.length === 0) {
+        console.log(`No activity in the last ${days} days`);
+        return;
+      }
+
+      // Group by type
+      const byType: Record<string, number> = {};
+      for (const s of recent) {
+        const t = s.contentType || 'unknown';
+        byType[t] = (byType[t] || 0) + 1;
+      }
+
+      const typeSummary = Object.entries(byType)
+        .map(([t, c]) => `${t}: ${c}`)
+        .join(', ');
+
+      console.log(`Last ${days} days: ${recent.length} items (${typeSummary})\n`);
+      for (const s of recent.slice(0, 10)) {
+        const type = s.contentType?.[0] || '?';
+        const preview = s.content.replace(/\s+/g, ' ').substring(0, 50);
+        console.log(`  ${s.date} [${type}] ${s.id}: ${preview}...`);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('whats-new')
+  .description('Show recent updates on a topic (last N days)')
+  .option('-p, --path <path>', 'Repository path', process.cwd())
+  .argument('<topic>', 'Topic to check for updates')
+  .option('-d, --days <number>', 'Number of days to look back', '7')
+  .option('-l, --limit <number>', 'Maximum results', '10')
+  .action(async (topic, options) => {
+    try {
+      const config = await loadConfig(options.path);
+
+      const initialized = await checkInitialized(config.indexPath);
+      if (!initialized) {
+        console.error('Error: gordo-ledger not initialized');
+        process.exit(1);
+      }
+
+      const manager = new MemoryManager(config);
+      const days = parseInt(options.days);
+      const limit = parseInt(options.limit);
+
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - days);
+      const cutoffStr = cutoff.toISOString().split('T')[0];
+
+      const results = await manager.search({
+        query: topic,
+        limit: limit * 2,
+        threshold: 0.3,
+        dateRange: { start: cutoffStr, end: '2100-12-31' }
+      });
+
+      // Sort by date descending (most recent first)
+      const sorted = results
+        .sort((a, b) => (b.date || '').localeCompare(a.date || ''))
+        .slice(0, limit);
+
+      if (sorted.length === 0) {
+        console.log(`No updates on "${topic}" in the last ${days} days`);
+        return;
+      }
+
+      console.log(`Recent updates on "${topic}" (last ${days} days):\n`);
+      for (const r of sorted) {
+        const type = (r as any).contentType?.[0] || '?';
+        const preview = r.content.replace(/\s+/g, ' ').substring(0, 60);
+        console.log(`  ${r.date} [${type}] ${r.sessionId}: ${preview}...`);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      process.exit(1);
+    }
+  });
+
+program
   .command('handoffs')
   .description('Find handoff items and open threads from recent sessions')
   .option('-p, --path <path>', 'Repository path', process.cwd())
