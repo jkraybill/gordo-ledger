@@ -1044,7 +1044,7 @@ program
       // Read metadata
       const metadataPath = path.join(indexPath, 'metadata.json');
       const metadata = JSON.parse(await fs.readFile(metadataPath, 'utf-8'));
-      const docs = Object.values(metadata.documents || {}) as any[];
+      const docs = Object.values(metadata.documentStore || metadata.documents || {}) as any[];
 
       // Calculate stats
       const typeCounts: Record<string, number> = {};
@@ -1053,13 +1053,15 @@ program
       let totalSize = 0;
 
       for (const doc of docs) {
-        const type = doc.contentType || 'unknown';
+        const meta = doc.metadata || doc;
+        const type = meta.contentType || doc.contentType || 'unknown';
         typeCounts[type] = (typeCounts[type] || 0) + 1;
-        if (doc.date) {
-          if (!earliest || doc.date < earliest) earliest = doc.date;
-          if (!latest || doc.date > latest) latest = doc.date;
+        const date = meta.date || doc.date;
+        if (date) {
+          if (!earliest || date < earliest) earliest = date;
+          if (!latest || date > latest) latest = date;
         }
-        totalSize += doc.contentLength || 0;
+        totalSize += meta.contentLength || doc.content?.length || 0;
       }
 
       // Read extraction cache
