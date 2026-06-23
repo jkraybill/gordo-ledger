@@ -501,12 +501,14 @@ program
       const typeCounts: Record<string, number> = {};
       let newestDate = '';
       let oldestDate = '';
-      for (const doc of Object.values(metadata.documents || {}) as any[]) {
-        const type = doc.contentType || 'unknown';
+      for (const doc of Object.values(metadata.documentStore || metadata.documents || {}) as any[]) {
+        const meta = doc.metadata || doc;
+        const type = meta.contentType || doc.contentType || 'unknown';
         typeCounts[type] = (typeCounts[type] || 0) + 1;
-        if (doc.indexedAt) {
-          if (!newestDate || doc.indexedAt > newestDate) newestDate = doc.indexedAt;
-          if (!oldestDate || doc.indexedAt < oldestDate) oldestDate = doc.indexedAt;
+        const indexedAt = meta.indexedAt || doc.indexedAt;
+        if (indexedAt) {
+          if (!newestDate || indexedAt > newestDate) newestDate = indexedAt;
+          if (!oldestDate || indexedAt < oldestDate) oldestDate = indexedAt;
         }
       }
 
@@ -1167,12 +1169,15 @@ program
       const metadata = JSON.parse(await fs.readFile(metadataPath, 'utf-8'));
 
       // Sort by indexedAt descending
-      const docs = Object.entries(metadata.documents || {})
-        .map(([id, doc]: [string, any]) => ({
-          id,
-          indexedAt: doc.indexedAt || '',
-          contentType: doc.contentType || 'unknown',
-        }))
+      const docs = Object.entries(metadata.documentStore || metadata.documents || {})
+        .map(([id, doc]: [string, any]) => {
+          const meta = doc.metadata || doc;
+          return {
+            id,
+            indexedAt: meta.indexedAt || doc.indexedAt || '',
+            contentType: meta.contentType || doc.contentType || 'unknown',
+          };
+        })
         .filter(d => d.indexedAt)
         .sort((a, b) => b.indexedAt.localeCompare(a.indexedAt))
         .slice(0, parseInt(options.limit));
