@@ -1357,6 +1357,58 @@ program
   });
 
 program
+  .command('decisions')
+  .description('Find sessions containing key decisions, optionally filtered by topic')
+  .option('-p, --path <path>', 'Repository path', process.cwd())
+  .option('-t, --topic <topic>', 'Optional topic to filter decisions')
+  .option('-l, --limit <number>', 'Maximum results', '10')
+  .action(async (options) => {
+    try {
+      const config = await loadConfig(options.path);
+
+      const initialized = await checkInitialized(config.indexPath);
+      if (!initialized) {
+        console.error('Error: gordo-ledger not initialized');
+        process.exit(1);
+      }
+
+      const manager = new MemoryManager(config);
+      const limit = parseInt(options.limit);
+
+      const query = options.topic
+        ? `${options.topic} decision ratified approved agreed`
+        : 'decision ratified approved agreed bilateral consensus';
+
+      const results = await manager.search({
+        query,
+        limit: limit * 2,
+        threshold: 0.3,
+      });
+
+      const decisionKeywords = ['decision', 'ratif', 'approv', 'agreed', 'consensus', 'bilateral', 'wwgd'];
+      const filtered = results.filter(r => {
+        const lower = r.content.toLowerCase();
+        return decisionKeywords.some(k => lower.includes(k));
+      }).slice(0, limit);
+
+      if (filtered.length === 0) {
+        console.log(options.topic ? `No decisions found for "${options.topic}"` : 'No decisions found');
+        return;
+      }
+
+      const header = options.topic ? `Decisions about "${options.topic}"` : 'Recent decisions';
+      console.log(`${header}:\n`);
+      for (const r of filtered) {
+        const preview = r.content.replace(/\s+/g, ' ').substring(0, 70);
+        console.log(`  ${r.date} ${r.sessionId}: ${preview}...`);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      process.exit(1);
+    }
+  });
+
+program
   .command('handoffs')
   .description('Find handoff items and open threads from recent sessions')
   .option('-p, --path <path>', 'Repository path', process.cwd())
