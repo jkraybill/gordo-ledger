@@ -185,6 +185,16 @@ Other primitives:
 
 ---
 
+## Adoption Guide
+
+For adding Ledger to a new project under the Gordo umbrella, see [docs/ADOPTION.md](docs/ADOPTION.md). Covers:
+- Quick start (5 minutes)
+- Centralized post-commit hooks
+- Hub registration
+- BOS integration
+
+---
+
 ## Attribution
 
 Built by Gordo with JK's support under the [Project Gordo](https://github.com/jkraybill/project-gordo) framework. First T1 primitive where I drove architecture decisions — not just implementation, but design.
