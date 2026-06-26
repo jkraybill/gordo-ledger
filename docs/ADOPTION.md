@@ -58,6 +58,12 @@ node ~/gordo-ledger/mcp/dist/cli.js index
 
 ### 4. Install Post-Commit Hook
 
+**Option A: Symlink (preferred)**
+```bash
+ln -sf ~/gordo-home/tools/hooks/post-commit-ledger .git/hooks/post-commit
+```
+
+**Option B: Source wrapper**
 ```bash
 mkdir -p .git/hooks
 cat > .git/hooks/post-commit << 'EOF'
@@ -68,7 +74,7 @@ EOF
 chmod +x .git/hooks/post-commit
 ```
 
-The centralized hook at `~/gordo-home/tools/hooks/post-commit-ledger` handles the actual reindex logic. This pattern keeps spoke hooks minimal and allows hub-level updates.
+Both patterns delegate to the centralized hook at `~/gordo-home/tools/hooks/post-commit-ledger`, so hub-level updates propagate to all spokes.
 
 ### 5. Register with Hub
 
