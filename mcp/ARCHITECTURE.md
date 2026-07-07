@@ -1,34 +1,38 @@
-# gordo-memory Architecture
+# gordo-ledger MCP Architecture
 
-**Five-Layer Memory:** Built for Project Gordo umbrella with hierarchical context indexing.
+**Six-Layer Memory:** Built for Project Gordo umbrella with hierarchical context indexing.
 
 ---
 
-## Five-Layer Memory System
+## Six-Layer Memory System
 
-gordo-memory indexes five layers of project context, each with hierarchical boosting:
+gordo-ledger indexes six layers of project context, each with hierarchical boosting:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    FIVE-LAYER MEMORY                        │
+│                    SIX-LAYER MEMORY                         │
 ├─────────────────────────────────────────────────────────────┤
-│  Layer 1: SESSIONS (2.0x boost)                             │
+│  Layer 1: SESSIONS (2.0x default boost)                     │
 │    └── JOURNAL.md or sessions/ directory                    │
 │    └── Highest priority - your conversation logs            │
 ├─────────────────────────────────────────────────────────────┤
-│  Layer 2: ISSUES (1.5x boost)                               │
+│  Layer 2: MEMORY (2.0x default boost)                       │
+│    └── auto-memory/*.md (harness memory files)              │
+│    └── Graduated learnings — feedback, user, project, refs  │
+├─────────────────────────────────────────────────────────────┤
+│  Layer 3: ISSUES (1.5x default boost)                       │
 │    └── github-issues/*.md (synced from GitHub)              │
 │    └── Project planning, bug reports, feature requests      │
 ├─────────────────────────────────────────────────────────────┤
-│  Layer 3: COMMITS (1.2x boost)                              │
+│  Layer 4: COMMITS (1.2x default boost)                              │
 │    └── git-commits/*.md (synced from git log)               │
 │    └── What changed and why                                 │
 ├─────────────────────────────────────────────────────────────┤
-│  Layer 4: DOCS (1.0x baseline)                              │
+│  Layer 5: DOCS (1.0x baseline)                              │
 │    └── docs/**/*.md, README.md, *.md                        │
 │    └── Reference documentation                              │
 ├─────────────────────────────────────────────────────────────┤
-│  Layer 5: CODE (0.5x boost, disabled by default)            │
+│  Layer 6: CODE (1.0x default, intent-boosted)            │
 │    └── **/*.{ts,js,py,go,rs}                                │
 │    └── Implementation details (can be noisy)                │
 └─────────────────────────────────────────────────────────────┘
@@ -42,8 +46,8 @@ gordo-memory indexes five layers of project context, each with hierarchical boos
 
 ## Design Principles
 
-### 1. Five-Layer First
-✅ "Index sessions, issues, commits, docs, and code with hierarchical boosting"
+### 1. Six-Layer First
+✅ "Index sessions, memory, issues, commits, docs, and code with hierarchical boosting"
 ❌ "Just index the journal"
 
 ### 2. Gordo-Specific Knowledge
@@ -78,7 +82,7 @@ gordo-memory indexes five layers of project context, each with hierarchical boos
 └────────────────────┬────────────────────────────────────────┘
                      │ MCP Protocol (JSON-RPC)
 ┌────────────────────▼────────────────────────────────────────┐
-│ gordo-memory MCP Server (Node.js/TypeScript)                │
+│ gordo-ledger MCP Server (Node.js/TypeScript)                │
 │                                                              │
 │  Tools:                                                      │
 │   - search_journal(query, limit)    → session IDs + scores  │
@@ -421,7 +425,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 
 const server = new Server({
-  name: 'gordo-memory',
+  name: 'gordo-ledger',
   version: '0.1.0',
 }, {
   capabilities: {
@@ -465,7 +469,7 @@ await server.connect(transport);
 ## File Structure
 
 ```
-mcp-servers/gordo-memory/
+mcp-servers/gordo-ledger/
 ├── src/
 │   ├── index.ts              # MCP server entry point
 │   ├── parser.ts             # JournalParser, SessionParser
@@ -534,12 +538,12 @@ mcp-servers/gordo-memory/
 
 ### Mode 1: MCP Server (Primary)
 - Claude Code configures MCP server in settings
-- gordo-memory runs as background process
+- gordo-ledger runs as background process
 - Tools available automatically at BOS
 - **Use case:** v0.7.0+ users with Claude Code
 
 ### Mode 2: CLI (Fallback)
-- `gordo-memory search "query"` from terminal
+- `gordo-ledger search "query"` from terminal
 - Outputs JSON (can be piped)
 - **Use case:** Users without MCP, automation scripts
 
@@ -599,7 +603,7 @@ mcp-servers/gordo-memory/
 | **Indexing** | Batch rebuild | Simpler than incremental, good enough for v0.7.0 |
 | **Reranking** | Simple boost (exact matches) | Complex reranking unnecessary (bakeoff) |
 | **Chunking** | Session-level (no splitting) | Sessions already 250-500 words (optimal) |
-| **Persistence** | .gordo-memory/ (gitignored) | Local-first, git-friendly |
+| **Persistence** | .gordo-ledger/ (gitignored) | Local-first, git-friendly |
 
 ---
 
@@ -615,3 +619,7 @@ mcp-servers/gordo-memory/
 
 <!-- Last reviewed: 2026-06-25 00:31 AEST by Gordo -->
 <!-- Last reviewed: 2026-06-30 11:11 AEST by Gordo -->
+
+*Updated S459 backchannel (2026-07-08): retitled gordo-memory -> gordo-ledger (record-034 obsoleted the old name), added memory layer (six layers live), boosts documented as query-intent-dynamic defaults per src/query-intent.ts.*
+
+<!-- Last reviewed: 2026-07-08 00:06 AEST by Gordo -->
