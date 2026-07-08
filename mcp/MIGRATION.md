@@ -1,6 +1,6 @@
 # Migration Guide: Single Journal → Individual Session Files
 
-**For repos set up before gordo-memory, or using single JOURNAL.md**
+**For repos set up before gordo-ledger, or using single JOURNAL.md**
 
 ## Why Migrate?
 
@@ -12,7 +12,7 @@
 | Past entries could be edited | Past sessions are frozen/immutable |
 | Hard to prune old sessions | Trivial to archive/delete |
 
-**The key insight:** gordo-memory exists so you DON'T read the whole journal. You search. Individual files are optimal search targets.
+**The key insight:** gordo-ledger exists so you DON'T read the whole journal. You search. Individual files are optimal search targets.
 
 ## Migration Steps
 
@@ -99,25 +99,25 @@ mv GORDO_JOURNAL_LOG.md archive/ 2>/dev/null || true
 }
 ```
 
-### Step 5: Reindex gordo-memory
+### Step 5: Reindex gordo-ledger
 
 ```bash
 # Full reindex to pick up new session files
-./scripts/sync-memory.sh --all
+./scripts/sync-ledger.sh --all
 
 # Or manually
-gordo-memory index --full
+gordo-ledger index --full
 ```
 
 ### Step 6: Verify migration
 
 ```bash
 # Check session count
-gordo-memory stats
+gordo-ledger stats
 # Should show: totalIndexedDocuments: XX (matching your session count)
 
 # Test search
-gordo-memory search "your recent topic"
+gordo-ledger search "your recent topic"
 # Should return relevant sessions
 ```
 
@@ -130,7 +130,7 @@ Update your project's framework files to reflect the new session format:
 3. **Create session file:**
    - Create `sessions/Session_XX.md` (next number)
    - Format: `# Session XX: Title` + Date, summary, tests, commit, pattern
-   - Pre-commit hook auto-indexes to gordo-memory
+   - Pre-commit hook auto-indexes to gordo-ledger
 ```
 
 **CLAUDE.md:**
@@ -190,9 +190,9 @@ The standard pre-commit hook already handles individual session files:
 repos:
   - repo: local
     hooks:
-      - id: gordo-memory-index
-        name: gordo-memory index
-        entry: bash -c 'gordo-memory index --incremental 2>/dev/null || true'
+      - id: gordo-ledger-index
+        name: gordo-ledger index
+        entry: bash -c 'gordo-ledger index --incremental 2>/dev/null || true'
         language: system
         pass_filenames: false
         always_run: true
@@ -211,7 +211,7 @@ mv archive/JOURNAL.md .
 # Change "directory": "sessions" to "file": "JOURNAL.md"
 
 # Reindex
-gordo-memory index --full
+gordo-ledger index --full
 ```
 
 ## Troubleshooting
@@ -219,7 +219,7 @@ gordo-memory index --full
 **"No sessions found" after migration**
 - Verify session files exist: `ls sessions/`
 - Check file format: must have `# Session N:` header
-- Reindex: `gordo-memory index --full`
+- Reindex: `gordo-ledger index --full`
 
 **Session count mismatch**
 - Parser looks for `# Session N:` pattern
@@ -229,7 +229,7 @@ gordo-memory index --full
 **Search returns old JOURNAL.md content**
 - Archive directory should be excluded from indexing
 - Check `config.json` indexPatterns.exclude includes `archive/**`
-- Force reindex: `gordo-memory index --full`
+- Force reindex: `gordo-ledger index --full`
 
 ## Example Migration (polymarket project)
 
@@ -240,15 +240,16 @@ gordo-memory index --full
 $ ls sessions/ | wc -l
 45
 
-$ gordo-memory stats
+$ gordo-ledger stats
 {
   "totalIndexedDocuments": 179,  # 45 sessions + issues + commits + docs
-  "indexPath": ".gordo-memory",
+  "indexPath": ".gordo-ledger",
   "provider": "ollama"
 }
 
-$ gordo-memory search "kelly sizing"
+$ gordo-ledger search "kelly sizing"
 # Returns: Session_26 (Monte Carlo param optimization)
 ```
 
-<!-- Last reviewed: 2026-05-26 17:26 AEST by Gordo -->
+<!-- Last reviewed: 2026-07-09 00:40 AEST by Gordo -->
+<!-- S460: Full terminology update gordo-memory → gordo-ledger per record-034 (S237) -->
