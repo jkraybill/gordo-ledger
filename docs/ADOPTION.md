@@ -6,6 +6,33 @@ This guide assumes you have a hub (like `jk-gordo-workshop`) that manages spoke 
 
 ---
 
+## Fully Wired — The Definition
+
+A spoke is **fully wired** when ALL seven hold (this list is canonical; scripts
+and skills elsewhere reference it):
+
+1. `config.json` has a `memory.semantic` block (enabled, ollama/mxbai)
+2. `.gordo-memory/` index built and populated
+3. `.gordo-memory/` is gitignored
+4. post-commit auto-reindex hook installed (symlink to `~/gordo-home/tools/post-commit-reindex.sh`)
+5. registered in the hub's `projects/linked.conf` (→ BOS spoke stats)
+6. federated in the hub's `config.json` at `memory.semantic.federatedPaths` —
+   **inside** `memory.semantic`; `loadConfig` silently drops top-level keys
+   (workshop S126, `032d436`)
+7. verified: `stats` shows docs > 0 AND a semantic search returns on-topic hits
+
+**One command does all seven:**
+
+```bash
+~/gordo-ledger/scripts/wire-spoke.sh ~/your-project [--hub ~/your-hub] [--code] [--query "on-topic test"]
+```
+
+It's idempotent (safe to re-run), never commits, and prints the follow-up
+commits it can't make for you. The manual steps below are the same procedure
+unrolled, for understanding or partial repair.
+
+---
+
 ## Prerequisites
 
 - gordo-ledger built: `cd ~/gordo-ledger/mcp && npm install && npm run build`
@@ -58,23 +85,21 @@ node ~/gordo-ledger/mcp/dist/cli.js index
 
 ### 4. Install Post-Commit Hook
 
-**Option A: Symlink (preferred)**
+Symlink to the canonical hook (this is what every wired spoke uses — verify
+with `ls -la ~/jkbox/.git/hooks/post-commit`):
+
 ```bash
-ln -sf ~/gordo-home/tools/hooks/post-commit-ledger .git/hooks/post-commit
+ln -sf ~/gordo-home/tools/post-commit-reindex.sh .git/hooks/post-commit
 ```
 
-**Option B: Source wrapper**
-```bash
-mkdir -p .git/hooks
-cat > .git/hooks/post-commit << 'EOF'
-#!/bin/bash
-# Gordo ledger auto-reindex on commit
-source "/home/jk/gordo-home/tools/hooks/post-commit-ledger"
-EOF
-chmod +x .git/hooks/post-commit
-```
+The hook self-guards: it exits silently unless the repo has `.gordo-memory/`,
+only reindexes when indexable files changed, checks Ollama availability, and
+runs in the background so commits aren't blocked. Update the central script
+once and all spokes benefit.
 
-Both patterns delegate to the centralized hook at `~/gordo-home/tools/hooks/post-commit-ledger`, so hub-level updates propagate to all spokes.
+> Historical note: this doc previously pointed at
+> `~/gordo-home/tools/hooks/post-commit-ledger`, which does not exist.
+> Corrected S127 (2026-07-21).
 
 ### 5. Register with Hub
 
@@ -118,16 +143,30 @@ Projects **don't need their own `.mcp.json`** if:
 
 The ledger MCP server uses `GORDO_REPO_PATH` or `process.cwd()` to find the index.
 
-For explicit cross-repo access, use `federatedPaths` in config.json:
+For explicit cross-repo access, use `federatedPaths` in config.json. It MUST
+live **inside** `memory.semantic` — `loadConfig` silently drops unknown
+top-level keys, so a top-level `federatedPaths` is ignored without error
+(workshop S126 debugging, commit `032d436`):
 
 ```json
 {
-  "federatedPaths": [
-    "~/home-server",
-    "~/other-project"
-  ]
+  "memory": {
+    "semantic": {
+      "enabled": true,
+      "federatedPaths": [
+        "~/home-server",
+        "~/other-project"
+      ]
+    }
+  }
 }
 ```
+
+Federation semantics (verified S127, 2026-07-21):
+- **MCP server**: federates automatically and picks up config edits **live** —
+  it re-reads config.json on each federated call, no restart needed.
+- **CLI**: does NOT read `federatedPaths`; cross-repo CLI search requires the
+  explicit flag: `search "query" --federate ~/spoke-a,~/spoke-b`.
 
 ---
 
@@ -157,9 +196,9 @@ Update this central hook once, all spokes benefit.
 ## Troubleshooting
 
 **Index not updating after commits:**
-- Check hook is executable: `ls -la .git/hooks/post-commit`
-- Check hook sources the right path
-- Test manually: `source ~/gordo-home/tools/hooks/post-commit-ledger`
+- Check hook symlink: `ls -la .git/hooks/post-commit` (should → `~/gordo-home/tools/post-commit-reindex.sh`)
+- Check the reindex log: `tail ~/gordo-home/logs/ledger-reindex.log`
+- Test manually: `cd <spoke> && node ~/gordo-ledger/mcp/dist/cli.js index --incremental`
 
 **Search returns no results:**
 - Verify index has docs: `node ~/gordo-ledger/mcp/dist/cli.js stats`
@@ -195,19 +234,18 @@ To index code (can be noisy for large codebases):
 
 ---
 
-## Minimal vs Full Integration
+## Minimal vs Fully Wired
 
-**Minimal (this guide):**
-- Local index only
-- Post-commit auto-reindex
-- Hub registration for BOS stats
+**Minimal:** local index + auto-reindex hook + hub registration. Enough for
+searching from inside the spoke and BOS freshness stats.
 
-**Full integration (optional):**
-- `.claude/settings.json` with project-specific hooks
-- Skills directory with project-specific commands
-- Federation config for cross-repo search
+**Fully wired** (see the definition at the top of this doc): minimal PLUS hub
+federation and verification. This is the default expectation for active
+spokes — federation is what lets the hub session (where most work starts)
+reach the spoke's memory without cd-ing into it.
 
-Most spoke projects only need minimal integration.
+Beyond wiring, some spokes also carry `.claude/settings.json` hooks or a
+skills directory — that's project tooling, not ledger wiring.
 
 ---
 
