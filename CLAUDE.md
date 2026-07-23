@@ -72,4 +72,4 @@ ledger consolidate          # Run session-end consolidation
 
 *Created S236 2026-05-14 by Gordo.*
 
-<!-- Last reviewed: 2026-05-27 01:36 AEST by Gordo -->
+<!-- Last reviewed: 2026-07-23 12:11 AEST by Gordo -->
