@@ -229,7 +229,7 @@ program
   .option('--since <date>', 'Filter results after this date (YYYY-MM-DD)')
   .option('--until <date>', 'Filter results before this date (YYYY-MM-DD)')
   .option('--type <types>', 'Filter by content type (comma-separated: session,issue,commit,docs,conversation)')
-  .option('--federate <paths>', 'Also search additional repo paths (comma-separated)')
+  .option('--federate [paths]', 'Search federated repos too (comma-separated paths; bare flag = config memory.semantic.federatedPaths)')
   .action(async (query, options) => {
     try {
       const config = await loadConfig(options.path);
@@ -270,8 +270,21 @@ program
       let results = await manager.search(searchOpts);
 
       // S338: Federated search across multiple repos
+      // S463 (#15): bare --federate falls back to config federatedPaths; skips are loud
       if (options.federate) {
-        const federatedPaths = options.federate.split(',').map((p: string) => p.trim());
+        let federatedPaths: string[];
+        if (options.federate === true) {
+          federatedPaths = ((config as any).federatedPaths || []).map((p: string) => p.trim());
+          if (federatedPaths.length === 0) {
+            console.error('federate: no memory.semantic.federatedPaths in config — searching local only');
+          }
+        } else if (options.federate.startsWith('-')) {
+          console.error(`federate: value "${options.federate}" looks like a flag — pass comma-separated paths, or bare --federate for config paths`);
+          process.exit(1);
+          return;
+        } else {
+          federatedPaths = options.federate.split(',').map((p: string) => p.trim()).filter(Boolean);
+        }
         for (const fedPath of federatedPaths) {
           const resolvedPath = fedPath.startsWith('~')
             ? fedPath.replace('~', process.env.HOME || '')
@@ -284,12 +297,14 @@ program
               const fedResults = await fedManager.search(searchOpts);
               // Tag results with source repo
               fedResults.forEach(r => {
-                (r as any).sourceRepo = fedPath;
+                (r as any).sourceRepo = resolvedPath;
               });
               results = [...results, ...fedResults];
+            } else {
+              console.error(`federate: skipped ${fedPath} (no index)`);
             }
           } catch (e) {
-            // Skip repos that fail to load
+            console.error(`federate: skipped ${fedPath} (load failed)`);
           }
         }
         // Re-sort combined results by similarity
@@ -314,12 +329,16 @@ program
         .map(([k, v]) => `${k}: ${v}`)
         .join(' | ');
 
+      // S463 (#15): label federated hits with their source repo
+      const realmTag = (r: any): string =>
+        r.sourceRepo ? `[${path.basename(r.sourceRepo)}] ` : '';
+
       if (options.verbose) {
         // Verbose format (original)
         console.log(`Layers: ${layerSummary}\n`);
         results.forEach((result, index) => {
           const layer = (result as any).contentType || '';
-          console.log(`${index + 1}. [${layer}] ${result.sessionId} (${result.date})`);
+          console.log(`${index + 1}. [${layer}] ${realmTag(result)}${result.sessionId} (${result.date})`);
           console.log(`   Similarity: ${(result.similarity * 100).toFixed(1)}%`);
           if (result.summary) {
             console.log(`   Summary: ${result.summary}`);
@@ -351,7 +370,7 @@ program
             .replace(/\n/g, ' ')
             .replace(/\s+/g, ' ')
             .trim();
-          console.log(`${pct}% ${result.sessionId}${pathHint} — ${snippet}...`);
+          console.log(`${pct}% ${realmTag(result)}${result.sessionId}${pathHint} — ${snippet}...`);
         });
         // Layer distribution (#1)
         console.log(`\n(${layerSummary})`);

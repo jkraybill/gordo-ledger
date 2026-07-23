@@ -85,10 +85,11 @@ class GordoLedgerServer {
   }
 
   // S338: Get federated memory managers for cross-repo search
-  private async getFederatedManagers(): Promise<MemoryManager[]> {
+  // S463 (#15): carry the source realm so results can be labeled
+  private async getFederatedManagers(): Promise<Array<{ manager: MemoryManager; realm: string }>> {
     const config = await this.loadConfig();
     const federatedPaths = (config as any).federatedPaths || [];
-    const managers: MemoryManager[] = [];
+    const managers: Array<{ manager: MemoryManager; realm: string }> = [];
 
     for (const fedPath of federatedPaths) {
       const resolvedPath = fedPath.startsWith('~')
@@ -111,7 +112,7 @@ class GordoLedgerServer {
           await fs.access(fedConfig.indexPath);
           const fedManager = new MemoryManager(fedConfig);
           await fedManager.initialize();
-          managers.push(fedManager);
+          managers.push({ manager: fedManager, realm: path.basename(resolvedPath) });
         } catch {
           // Index doesn't exist, skip
         }
@@ -517,9 +518,13 @@ class GordoLedgerServer {
 
             // S338: Federated search across umbrella repos
             const federatedManagers = await this.getFederatedManagers();
-            for (const fedManager of federatedManagers) {
+            for (const { manager: fedManager, realm } of federatedManagers) {
               try {
                 const fedResults = await fedManager.search(searchOpts);
+                // S463 (#15): label federated hits with their source realm
+                fedResults.forEach(r => {
+                  (r as any).sourceRealm = realm;
+                });
                 results = [...results, ...fedResults];
               } catch {
                 // Skip failed federated searches
@@ -530,15 +535,16 @@ class GordoLedgerServer {
             results = results.slice(0, limit);
 
             // Compact format: one line per result, optimized for LLM consumption
-            // Format: "77% session-4 (2026-05-22) — Summary or preview..."
+            // Format: "77% [realm] session-4 (2026-05-22) — Summary or preview..."
             const lines = results.map(r => {
               const pct = Math.round(r.similarity * 100);
               const date = r.date ? ` (${r.date.split('T')[0]})` : '';
+              const realm = (r as any).sourceRealm ? `[${(r as any).sourceRealm}] ` : '';
               // Prefer summary if available, fall back to truncated content
               const abstract = r.summary
                 ? r.summary.replace(/\s+/g, ' ').substring(0, 100)
                 : r.content.replace(/\s+/g, ' ').substring(0, 100);
-              return `${pct}% ${r.sessionId}${date} — ${abstract}`;
+              return `${pct}% ${realm}${r.sessionId}${date} — ${abstract}`;
             });
 
             return {
