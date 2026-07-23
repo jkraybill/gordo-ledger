@@ -20,6 +20,8 @@ import hnswlib from 'hnswlib-node';
 const { HierarchicalNSW } = hnswlib;
 import { SessionEntry, SessionSignals } from '../types.js';
 import fs from 'fs/promises';
+import { createReadStream, createWriteStream } from 'fs';
+import readline from 'readline';
 import path from 'path';
 import { createHash } from 'crypto';
 
@@ -137,10 +139,57 @@ export function createHNSWIndexer(config: HNSWConfig) {
         // Load metadata
         const metadataContent = await fs.readFile(metadataFile, 'utf-8');
         const metadata = JSON.parse(metadataContent);
+
+        // S463: fail loudly on formats newer than this build understands.
+        // Without this, unknown formats fall into the catch below, which
+        // silently builds an EMPTY index — and a subsequent index run would
+        // re-embed everything and persist an older format over good data.
+        const SUPPORTED_FORMAT = 3;
+        if ((metadata.formatVersion || 1) > SUPPORTED_FORMAT) {
+          throw new Error(`metadata.json formatVersion ${metadata.formatVersion} exceeds supported ${SUPPORTED_FORMAT} — rebuild/upgrade gordo-ledger (mcp/dist is stale)`);
+        }
+
         documentStore = metadata.documentStore;
         idToIndex = new Map(Object.entries(metadata.idToIndex).map(([k, v]) => [k, v as number]));
         indexToId = new Map(Object.entries(metadata.indexToId).map(([k, v]) => [Number(k), v as string]));
         nextIndex = metadata.nextIndex;
+
+        // S463 (#14 phase 2, formatVersion 3): document content lives in
+        // content.jsonl — one {id, content} record per line — streamed here
+        // line-by-line instead of arriving as part of one giant JSON parse.
+        // metadata.json carries only doc metadata + id maps. v1/v2 files have
+        // content inline in documentStore and skip this hydration.
+        if (metadata.formatVersion >= 3) {
+          const contentFile = path.join(config.indexPath, 'content.jsonl');
+          const contentById = new Map<string, string>();
+          const rl = readline.createInterface({
+            input: createReadStream(contentFile, { encoding: 'utf-8' }),
+            crlfDelay: Infinity
+          });
+          for await (const line of rl) {
+            if (!line) continue;
+            const rec = JSON.parse(line);
+            contentById.set(rec.id, rec.content);
+          }
+          const missing: string[] = [];
+          for (const [docId, doc] of Object.entries(documentStore)) {
+            const content = contentById.get(docId);
+            if (content === undefined) {
+              // Metadata without content is a broken pair. Hydrate empty and
+              // clear the stored contentHash so the incremental content-compare
+              // sees a mismatch and re-indexes this doc (self-heal). Loud, not
+              // silent: an instrument that can't show red can't be trusted.
+              (doc as { content: string }).content = '';
+              delete (doc as { metadata: { contentHash?: string } }).metadata.contentHash;
+              missing.push(docId);
+            } else {
+              (doc as { content: string }).content = content;
+            }
+          }
+          if (missing.length > 0) {
+            console.error(`hnsw-indexer: ${missing.length} doc(s) missing from content.jsonl, hydrated empty + queued for reindex: ${missing.slice(0, 5).join(', ')}${missing.length > 5 ? '…' : ''}`);
+          }
+        }
 
         // S463 (#14 phase 1, formatVersion 2): BM25 state is derived, not persisted —
         // token arrays were the single largest component of metadata.json (97MB of
@@ -164,6 +213,11 @@ export function createHNSWIndexer(config: HNSWConfig) {
         const stat = await fs.stat(metadataFile);
         lastLoadTime = stat.mtimeMs;
       } catch (e) {
+        // Format-version errors must escape — falling through to a fresh empty
+        // index is exactly the failure the guard exists to prevent (S463).
+        if (e instanceof Error && e.message.includes('formatVersion')) {
+          throw e;
+        }
         // Create new index
         await fs.mkdir(config.indexPath, { recursive: true });
         index = new HierarchicalNSW('cosine', config.vectorSize);
@@ -696,19 +750,46 @@ export function createHNSWIndexer(config: HNSWConfig) {
     const indexFile = path.join(config.indexPath, 'index.hnsw');
     index.writeIndexSync(indexFile);
 
-    // Save metadata — formatVersion 2 (S463, #14 phase 1): BM25 state is rebuilt
-    // from documentStore at load, so it is no longer persisted (was 97MB of token
-    // arrays on the backchannel hub). Compact stringify — pretty-printing added
-    // another 80MB of whitespace and a ~500MB serialization spike.
+    // formatVersion 3 (S463, #14 phase 2): content streams to content.jsonl,
+    // one {id, content} record per line, via a write stream to a temp file with
+    // atomic rename — no whole-store JSON string is ever built. metadata.json
+    // carries only doc metadata + id maps (BM25 is rebuilt at load since v2).
+    // Write order is crash-safe: content first, then metadata — orphan records
+    // in content.jsonl are harmless; metadata referencing missing content is
+    // repaired at load (empty-hydrate + forced reindex).
+    const contentFile = path.join(config.indexPath, 'content.jsonl');
+    const contentTmp = contentFile + '.tmp';
+    await new Promise<void>((resolve, reject) => {
+      const out = createWriteStream(contentTmp, { encoding: 'utf-8' });
+      out.on('error', reject);
+      out.on('finish', resolve);
+      (async () => {
+        for (const [id, doc] of Object.entries(documentStore)) {
+          const line = JSON.stringify({ id, content: doc.content }) + '\n';
+          if (!out.write(line)) {
+            await new Promise<void>(r => out.once('drain', r));
+          }
+        }
+        out.end();
+      })().catch(reject);
+    });
+    await fs.rename(contentTmp, contentFile);
+
+    const metadataDocs: Record<string, { metadata: SessionMetadata }> = {};
+    for (const [id, doc] of Object.entries(documentStore)) {
+      metadataDocs[id] = { metadata: doc.metadata };
+    }
     const metadata = {
-      formatVersion: 2,
-      documentStore,
+      formatVersion: 3,
+      documentStore: metadataDocs,
       idToIndex: Object.fromEntries(idToIndex),
       indexToId: Object.fromEntries(indexToId),
       nextIndex
     };
 
     const metadataFile = path.join(config.indexPath, 'metadata.json');
-    await fs.writeFile(metadataFile, JSON.stringify(metadata));
+    const metadataTmp = metadataFile + '.tmp';
+    await fs.writeFile(metadataTmp, JSON.stringify(metadata));
+    await fs.rename(metadataTmp, metadataFile);
   }
 }

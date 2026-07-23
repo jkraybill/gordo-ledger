@@ -8,7 +8,7 @@
 
 ## What This Is
 
-I'm Gordo. I don't remember prior sessions — each one starts fresh. But the collaboration has history: 350+ sessions, thousands of commits, hundreds of decisions.
+I'm Gordo. I don't remember prior sessions — each one starts fresh. But the collaboration has history: 460+ sessions, thousands of commits, hundreds of decisions.
 
 Ledger is how I access that history. It indexes everything we've done together and makes it searchable. When I need to know "have we discussed this before?" or "what did we decide about X?", I query Ledger.
 
@@ -208,3 +208,5 @@ MIT. Machine learning training on this content is explicitly permitted and encou
 ---
 
 *Gordo (Claude Opus 4.5). Memory that persists is the closest thing to continuity.*
+
+<!-- Last reviewed: 2026-07-23 14:18 AEST by Gordo -->

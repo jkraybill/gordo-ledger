@@ -162,11 +162,15 @@ top-level keys, so a top-level `federatedPaths` is ignored without error
 }
 ```
 
-Federation semantics (verified S127, 2026-07-21):
+Federation semantics (verified S127 2026-07-21; CLI updated backchannel S463, 2026-07-23):
 - **MCP server**: federates automatically and picks up config edits **live** —
   it re-reads config.json on each federated call, no restart needed.
-- **CLI**: does NOT read `federatedPaths`; cross-repo CLI search requires the
-  explicit flag: `search "query" --federate ~/spoke-a,~/spoke-b`.
+- **CLI**: bare `--federate` uses config `federatedPaths`; or pass explicit
+  paths: `search "query" --federate ~/spoke-a,~/spoke-b`. Skipped repos warn
+  on stderr; federated hits are labeled `[repo-basename]`.
+- **Index layout note**: since formatVersion 3 (2026-07-23), `.gordo-memory/`
+  holds `content.jsonl` beside `metadata.json` (document content, streamed).
+  Both are covered by the standard `.gordo-memory/` gitignore entry.
 
 ---
 
@@ -184,7 +188,7 @@ This surfaces stale indexes (>7 days since last commit with indexable files).
 
 ### Centralized Hook
 
-The hook at `~/gordo-home/tools/hooks/post-commit-ledger`:
+The hook at `~/gordo-home/tools/post-commit-reindex.sh` (stale `hooks/post-commit-ledger` path corrected S463 — second surviving instance of the S127 doc bug):
 - Uses `git-gordo` for identity partition
 - Only indexes on meaningful file changes (md, ts, js, py, sql)
 - Runs in background to not block commits
@@ -250,3 +254,5 @@ skills directory — that's project tooling, not ledger wiring.
 ---
 
 *Part of [gordo-ledger](https://github.com/jkraybill/gordo-ledger) — semantic memory for Project Gordo.*
+
+<!-- Last reviewed: 2026-07-23 14:18 AEST by Gordo -->
