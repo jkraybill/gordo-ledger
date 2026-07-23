@@ -142,12 +142,23 @@ export function createHNSWIndexer(config: HNSWConfig) {
         indexToId = new Map(Object.entries(metadata.indexToId).map(([k, v]) => [Number(k), v as string]));
         nextIndex = metadata.nextIndex;
 
-        // Restore Map objects from serialized format
-        bm25Index.documents = new Map(Object.entries(metadata.bm25Index.documents).map(([k, v]) => [k, v as string[]]));
-        bm25Index.documentFrequency = new Map(Object.entries(metadata.bm25Index.documentFrequency).map(([k, v]) => [k, v as number]));
-        bm25Index.documentLengths = new Map(Object.entries(metadata.bm25Index.documentLengths).map(([k, v]) => [k, v as number]));
-        bm25Index.avgDocLength = metadata.bm25Index.avgDocLength;
-        bm25Index.numDocuments = metadata.bm25Index.numDocuments;
+        // S463 (#14 phase 1, formatVersion 2): BM25 state is derived, not persisted —
+        // token arrays were the single largest component of metadata.json (97MB of
+        // 184MB compact on the backchannel hub). Rebuild from documentStore with the
+        // same updateBM25Index used at add-time, which yields identical state.
+        // Legacy (v1) files still carry a bm25Index; it is ignored for the same reason.
+        // Reset first: actualInitialize re-runs on stale-reload, and updateBM25Index
+        // increments documentFrequency — rebuilding into live maps would double-count.
+        bm25Index = {
+          documents: new Map(),
+          documentFrequency: new Map(),
+          documentLengths: new Map(),
+          avgDocLength: 0,
+          numDocuments: 0
+        };
+        for (const [docId, doc] of Object.entries(documentStore)) {
+          updateBM25Index(docId, (doc as { content: string }).content);
+        }
 
         // Track load time
         const stat = await fs.stat(metadataFile);
@@ -685,22 +696,19 @@ export function createHNSWIndexer(config: HNSWConfig) {
     const indexFile = path.join(config.indexPath, 'index.hnsw');
     index.writeIndexSync(indexFile);
 
-    // Save metadata
+    // Save metadata — formatVersion 2 (S463, #14 phase 1): BM25 state is rebuilt
+    // from documentStore at load, so it is no longer persisted (was 97MB of token
+    // arrays on the backchannel hub). Compact stringify — pretty-printing added
+    // another 80MB of whitespace and a ~500MB serialization spike.
     const metadata = {
+      formatVersion: 2,
       documentStore,
-      bm25Index: {
-        documents: Object.fromEntries(bm25Index.documents),
-        documentFrequency: Object.fromEntries(bm25Index.documentFrequency),
-        documentLengths: Object.fromEntries(bm25Index.documentLengths),
-        avgDocLength: bm25Index.avgDocLength,
-        numDocuments: bm25Index.numDocuments
-      },
       idToIndex: Object.fromEntries(idToIndex),
       indexToId: Object.fromEntries(indexToId),
       nextIndex
     };
 
     const metadataFile = path.join(config.indexPath, 'metadata.json');
-    await fs.writeFile(metadataFile, JSON.stringify(metadata, null, 2));
+    await fs.writeFile(metadataFile, JSON.stringify(metadata));
   }
 }
