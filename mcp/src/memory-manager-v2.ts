@@ -307,6 +307,22 @@ export class MemoryManager {
     let indexed = 0;
     let skipped = 0;
 
+    // S463: duplicate session ids in the source (e.g. a SESSION_LOG entry present
+    // twice) make incremental indexing flip-flop between the copies' hashes —
+    // silently re-embedding the doc on every run and burning an HNSW slot each
+    // time. Last-wins behavior is unchanged, but never silent.
+    {
+      const seen = new Set<string>();
+      const dupes = new Set<string>();
+      for (const s of sessions) {
+        if (seen.has(s.id)) dupes.add(s.id);
+        seen.add(s.id);
+      }
+      if (dupes.size > 0) {
+        console.error(`indexRepository: duplicate session id(s) in source — fix the source; last parsed copy wins: ${[...dupes].join(', ')}`);
+      }
+    }
+
     // Track which sessions need indexing
     const toIndex: SessionEntry[] = [];
 
