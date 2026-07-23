@@ -796,4 +796,4 @@ Built with TDD approach (Sessions 33-35):
 - Session 34: HNSW Indexer (19/19 tests, hnswlib-node embedded mode)
 - Session 35: MCP Wrapper (integration complete)
 
-<!-- Last reviewed: 2026-05-26 17:26 AEST by Gordo -->
+<!-- Last reviewed: 2026-07-23 12:06 AEST by Gordo -->
