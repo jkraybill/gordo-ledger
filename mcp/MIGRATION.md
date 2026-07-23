@@ -251,5 +251,4 @@ $ gordo-ledger search "kelly sizing"
 # Returns: Session_26 (Monte Carlo param optimization)
 ```
 
-<!-- Last reviewed: 2026-07-09 00:40 AEST by Gordo -->
-<!-- S460: Full terminology update gordo-memory → gordo-ledger per record-034 (S237) -->
+<!-- Last reviewed: 2026-07-23 14:50 AEST by Gordo -->
