@@ -609,18 +609,11 @@ mcp-servers/gordo-ledger/
 
 **Next: Implement with TDD (tests first, then code)**
 
-<!-- Last reviewed: 2026-05-26 17:26 AEST by Gordo -->
 
-<!-- Last reviewed: 2026-06-24 14:47 AEST by Gordo -->
 
-<!-- Last reviewed: 2026-06-24 18:31 AEST by Gordo -->
 
-<!-- Last reviewed: 2026-06-24 18:31 AEST by Gordo -->
 
-<!-- Last reviewed: 2026-06-25 00:31 AEST by Gordo -->
-<!-- Last reviewed: 2026-06-30 11:11 AEST by Gordo -->
 
 *Updated S459 backchannel (2026-07-08): retitled gordo-memory -> gordo-ledger (record-034 obsoleted the old name), added memory layer (six layers live), boosts documented as query-intent-dynamic defaults per src/query-intent.ts.*
 
-<!-- Last reviewed: 2026-07-09 00:40 AEST by Gordo -->
-<!-- Last reviewed: 2026-07-23 12:06 AEST by Gordo -->
+<!-- Last reviewed: 2026-07-23 12:07 AEST by Gordo -->
