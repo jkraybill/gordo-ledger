@@ -58,7 +58,9 @@ $GIT -C "$SPOKE" rev-parse --git-dir >/dev/null 2>&1 || fail "$SPOKE is not a gi
 [ -f "$HOME/gordo-ledger/mcp/dist/cli.js" ] || fail "ledger CLI not built (cd ~/gordo-ledger/mcp && npm run build)"
 [ -f "$HOOK_SRC" ] || fail "canonical hook missing: $HOOK_SRC"
 curl -sf http://localhost:11434/api/tags >/dev/null || fail "Ollama not reachable on :11434"
-ollama list 2>/dev/null | grep -q mxbai-embed-large || fail "mxbai-embed-large not pulled"
+# Check via the API (already confirmed reachable above) — `ollama list` fails
+# transiently under embedding load and misreports "not pulled" (backchannel S463)
+curl -sf http://localhost:11434/api/tags | grep -q mxbai-embed-large || fail "mxbai-embed-large not pulled"
 command -v jq >/dev/null || fail "jq required"
 echo "✓ spoke, CLI, hook, Ollama, model, jq"
 
@@ -103,6 +105,7 @@ fi
 
 step "5/7 hub registration (linked.conf)"
 LINKED="$HUB/projects/linked.conf"
+mkdir -p "$(dirname "$LINKED")"   # hubs without a projects/ dir yet (backchannel S463)
 if grep -qx "$SPOKE" "$LINKED" 2>/dev/null; then
   echo "✓ already in $LINKED"
 else
