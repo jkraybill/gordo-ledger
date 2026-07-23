@@ -1,22 +1,23 @@
 # gordo-ledger MCP: Semantic Memory Search Server
 
-**Five-Layer Memory** for Project Gordo umbrella - semantic search across sessions, issues, commits, docs, and code.
+**Six-Layer Memory** for Project Gordo umbrella - semantic search across sessions, memory, issues, commits, docs, and code.
 
 *Migrated to standalone repository S240. CLI commands and index directory (.gordo-memory/) unchanged for backwards compatibility.*
 
-## Five-Layer Memory Architecture (Recommended)
+## Six-Layer Memory Architecture
 
-The MCP server indexes **five layers** of project context, each with hierarchical boosting:
+The MCP server indexes **six layers** of project context, each with hierarchical boosting:
 
 | Layer | Source | Boost | Description |
 |-------|--------|-------|-------------|
-| **1. Sessions** | `sessions/*.md` (recommended) or `JOURNAL.md` | 2.0x | Your conversation logs (highest priority) |
-| **2. Issues** | `github-issues/*.md` | 1.5x | GitHub issues (project planning) |
-| **3. Commits** | `git-commits/*.md` | 1.2x | Git history (what changed and why) |
-| **4. Docs** | `docs/**/*.md`, `*.md` | 1.0x | Documentation (reference material) |
-| **5. Code** | `**/*.{ts,js,py}` | 0.5x | Source code (disabled by default) |
+| **1. Sessions** | `sessions/*.md` or `JOURNAL.md` | 2.0x | Your conversation logs (highest priority) |
+| **2. Memory** | `auto-memory/*.md` | 2.0x | Graduated learnings (feedback, user, project, refs) |
+| **3. Issues** | `github-issues/*.md` | 1.5x | GitHub issues (project planning) |
+| **4. Commits** | `git-commits/*.md` | 1.2x | Git history (what changed and why) |
+| **5. Docs** | `docs/**/*.md`, `*.md` | 1.0x | Documentation (reference material) |
+| **6. Code** | `**/*.{ts,js,py,go,rs}` | 1.0x | Source code (intent-boosted) |
 
-**Quick Start - Enable Full 5-Layer Memory:**
+**Quick Start - Enable Full 6-Layer Memory:**
 ```bash
 # Sync all layers and reindex
 ./scripts/sync-memory.sh --all
@@ -29,7 +30,7 @@ gordo-memory index --full     # Reindex everything
 
 ## Features
 
-- **Five-Layer Memory**: Sessions > Issues > Commits > Docs > Code (hierarchical boosting)
+- **Six-Layer Memory**: Sessions > Memory > Issues > Commits > Docs > Code (hierarchical boosting)
 - **Dynamic Hybrid Search**: Adaptive weighting based on query length (v0.8.0+)
   - Single-word queries (≤2 words): **0.3 dense + 0.7 BM25** (favor keyword matching)
   - Multi-word queries (>2 words): **0.7 dense + 0.3 BM25** (favor semantic matching)
