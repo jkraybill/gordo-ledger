@@ -238,6 +238,45 @@ To index code (can be noisy for large codebases):
 
 ---
 
+## Five-Layer Completeness (Optional): Issue + Commit Layers
+
+The parser natively understands two more layers beyond docs/sessions/code:
+markdown exports in `github-issues/` and `git-commits/` become `issue` and
+`commit` entries (see `mcp/src/parser/issue-commit-parser.ts` for the strict
+formats). Populating them turns queries like "why did we reorganize X" into
+cross-layer hits: the exact issue, the exact commit, the doc, and the session
+that did it — all in one search.
+
+**One command exports both and reindexes:**
+
+```bash
+GH_BIN=gh-gordo ~/gordo-ledger/scripts/sync-issue-commit-layers.sh ~/your-spoke
+```
+
+Issues are re-exported in full each run (they mutate); commit exports are
+immutable and skipped when present. Pass your identity-partition gh wrapper
+via `GH_BIN` (never hardcoded — partition rule 4). Keep both dirs gitignored:
+they are regenerable artifacts, like the index itself.
+
+**Two instrument gotchas, both found wiring the first five-layer spoke
+(mum-book, workshop S139):**
+
+1. **Incremental indexing is blind to these dirs** (gordo-ledger#17): the
+   change scan never consults gitignored export dirs, so fresh exports are
+   invisible to `--incremental`. The sync script forces `--full` for this
+   reason. If issue/commit layers ever look stale: `index --full`.
+2. **Layer-aware output breaks docs-only greps:** search trailers become
+   `(docs: 2 | issue: 1)` instead of `(docs: 3)`. wire-spoke.sh's verify
+   counted hits with a docs-only pattern and misreported zero (fixed —
+   it now counts result lines). Audit any script parsing CLI search output.
+
+Refresh cadence: after meaningful issue activity or a batch of commits —
+typically at EOS for the spoke, or before a session that will lean on the
+history. There is no hook for it; the post-commit reindex hook keeps docs
+fresh but does NOT re-export issues/commits.
+
+---
+
 ## Minimal vs Fully Wired
 
 **Minimal:** local index + auto-reindex hook + hub registration. Enough for

@@ -129,8 +129,11 @@ step "7/7 verify"
 DOCS=$( (cd "$SPOKE" && $LEDGER_CLI stats 2>/dev/null) | grep -oE 'Total indexed: [0-9]+' | grep -oE '[0-9]+' || echo 0)
 [ "$DOCS" -gt 0 ] || fail "index has 0 docs — nothing indexable? check indexDocs/indexCode"
 echo "✓ $DOCS docs indexed"
-# CLI result lines look like "85% path — preview"; trailer is "(docs: N)"
-HITS=$( (cd "$SPOKE" && $LEDGER_CLI search "$QUERY" --limit 3 2>/dev/null) | grep -oE '\(docs: [0-9]+\)' | grep -oE '[0-9]+' || echo 0)
+# CLI result lines look like "85% path — preview". Count those lines, NOT the
+# "(docs: N)" trailer — five-layer spokes emit mixed trailers like
+# "(docs: 2 | issue: 1)" which a docs-only grep misreads as zero hits
+# (found wiring mum-book, the first issue+commit-layer spoke; workshop S139).
+HITS=$( (cd "$SPOKE" && $LEDGER_CLI search "$QUERY" --limit 3 2>/dev/null) | grep -cE '^ *[0-9]+% ' || echo 0)
 if [ "$HITS" -gt 0 ]; then
   echo "✓ search \"$QUERY\" → $HITS hits"
 else
