@@ -11,6 +11,7 @@ import {
   Tool,
 } from '@modelcontextprotocol/sdk/types.js';
 import { MemoryManager } from './memory-manager-v2.js';
+import { pooledFederatedSearch } from './federated-search.js';
 import { GraphManager, GraphConfig } from './graph-manager.js';
 import type { MemoryConfig } from './types.js';
 import * as fs from 'fs/promises';
@@ -35,6 +36,7 @@ const DEFAULT_CONFIG: MemoryConfig = {
   indexDocs: true,  // Fix #142: Enable docs indexing by default
   indexCode: false, // Fix #142: Disable code indexing by default (noisy)
 };
+
 
 class GordoLedgerServer {
   private server: Server;
@@ -545,25 +547,20 @@ class GordoLedgerServer {
               };
             }
 
-            let results = await manager.search(searchOpts);
-
             // S338: Federated search across umbrella repos
             const federatedManagers = await this.getFederatedManagers();
-            for (const { manager: fedManager, realm } of federatedManagers) {
-              try {
-                const fedResults = await fedManager.search(searchOpts);
-                // S463 (#15): label federated hits with their source realm
-                fedResults.forEach(r => {
-                  (r as any).sourceRealm = realm;
-                });
-                results = [...results, ...fedResults];
-              } catch {
-                // Skip failed federated searches
-              }
+            let results: any[];
+
+            if (federatedManagers.length === 0) {
+              // Unfederated repos keep the original path exactly — the manager
+              // reranks its own candidates. This is what the GRT benchmark
+              // measures, and nothing below should move it.
+              results = await manager.search(searchOpts);
+            } else {
+              // S162: pool every realm's candidates and rerank ONCE. See
+              // federated-search.ts for why, and for the numbers.
+              results = await pooledFederatedSearch(manager, federatedManagers, searchOpts);
             }
-            // Re-sort by similarity and limit
-            results.sort((a, b) => b.similarity - a.similarity);
-            results = results.slice(0, limit);
 
             // Compact format: one line per result, optimized for LLM consumption
             // Format: "77% [realm] session-4 (2026-05-22) — Summary or preview..."

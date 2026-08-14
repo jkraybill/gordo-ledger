@@ -82,6 +82,10 @@ export interface SearchOptions {
   includePatterns?: string[];
   excludePatterns?: string[];
   contentTypes?: ('session' | 'issue' | 'commit' | 'code' | 'docs' | 'conversation' | 'memory')[];  // Filter by content type
+  // Per-search override of memory.semantic.rerankerEnabled. Federated search
+  // sets this false on every manager so it can rerank ONCE over the pooled
+  // candidates instead of once per realm. Undefined = follow the config.
+  rerankerEnabled?: boolean;
 }
 
 export interface EmbeddingProvider {

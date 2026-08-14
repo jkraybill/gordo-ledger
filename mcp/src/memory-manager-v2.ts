@@ -489,7 +489,10 @@ export class MemoryManager {
 
     // S338: Cross-encoder reranking for improved accuracy
     // Reranks top candidates using DeepInfra's Qwen3-Reranker-4B
-    if (this.config.rerankerEnabled !== false && hnswResults.length > 1) {
+    // options.rerankerEnabled is a per-search override (S162): federated search
+    // suppresses per-realm reranking so it can rerank the pooled set once.
+    const rerankThisSearch = options.rerankerEnabled ?? (this.config.rerankerEnabled !== false);
+    if (rerankThisSearch && hnswResults.length > 1) {
       try {
         const reranked = await rerank(
           options.query,

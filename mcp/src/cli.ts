@@ -8,6 +8,7 @@
 import { Command } from 'commander';
 import { MemoryManager } from './memory-manager-v2.js';
 import { GraphManager } from './graph-manager.js';
+import { pooledFederatedSearch, type FederatedRealm } from './federated-search.js';
 import type { MemoryConfig } from './types.js';
 import * as fs from 'fs/promises';
 import * as path from 'path';
@@ -285,6 +286,10 @@ program
         } else {
           federatedPaths = options.federate.split(',').map((p: string) => p.trim()).filter(Boolean);
         }
+        // S162: collect the realms, then pool and rerank ONCE — same helper the
+        // MCP server uses. This loop used to call fedManager.search() per realm,
+        // each of which made its own DeepInfra rerank round trip.
+        const realms: FederatedRealm[] = [];
         for (const fedPath of federatedPaths) {
           const resolvedPath = fedPath.startsWith('~')
             ? fedPath.replace('~', process.env.HOME || '')
@@ -293,13 +298,10 @@ program
             const fedConfig = await loadConfig(resolvedPath);
             const fedInitialized = await checkInitialized(fedConfig.indexPath);
             if (fedInitialized) {
-              const fedManager = new MemoryManager(fedConfig);
-              const fedResults = await fedManager.search(searchOpts);
-              // Tag results with source repo
-              fedResults.forEach(r => {
-                (r as any).sourceRepo = resolvedPath;
+              realms.push({
+                manager: new MemoryManager(fedConfig),
+                realm: path.basename(resolvedPath),
               });
-              results = [...results, ...fedResults];
             } else {
               console.error(`federate: skipped ${fedPath} (no index)`);
             }
@@ -307,10 +309,17 @@ program
             console.error(`federate: skipped ${fedPath} (load failed)`);
           }
         }
-        // Re-sort combined results by similarity
-        results.sort((a, b) => b.similarity - a.similarity);
-        // Limit to requested count
-        results = results.slice(0, parseInt(options.limit));
+        if (realms.length > 0) {
+          results = await pooledFederatedSearch(manager, realms, {
+            ...searchOpts,
+            limit: parseInt(options.limit),
+          });
+          // Preserve the pre-S162 label: the CLI printed the resolved path.
+          results.forEach(r => {
+            const realm = (r as any).sourceRealm;
+            if (realm) (r as any).sourceRepo = `${process.env.HOME || '~'}/${realm}`;
+          });
+        }
       }
 
       if (results.length === 0) {
