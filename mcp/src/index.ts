@@ -41,6 +41,12 @@ class GordoLedgerServer {
   private memoryManager: MemoryManager | null = null;
   private graphManager: GraphManager | null = null;
   private repoPath: string;
+  // S162 workshop: federated managers were rebuilt and re-initialized on EVERY
+  // search — loading each spoke's HNSW index from disk per call. Measured with
+  // 8 federated paths: 12s a search against 1-2s local-only; 16 paths: 22s.
+  // Cached here, keyed by resolved path, invalidated on index mtime change so a
+  // post-commit reindex is still picked up.
+  private federatedCache = new Map<string, { manager: MemoryManager; realm: string; stamp: number }>();
 
   constructor() {
     this.server = new Server(
@@ -84,6 +90,23 @@ class GordoLedgerServer {
     }
   }
 
+  // Cache key for a built index: newest mtime across the files a reindex
+  // rewrites. metadata.json lands last, but a partial write shouldn't slip
+  // past, so take the max of both. Missing file contributes 0 rather than
+  // throwing — a half-built index then reloads next call, which is correct.
+  private async indexStamp(indexPath: string): Promise<number> {
+    const parts = await Promise.all(
+      ['metadata.json', 'index.hnsw'].map(async f => {
+        try {
+          return (await fs.stat(path.join(indexPath, f))).mtimeMs;
+        } catch {
+          return 0;
+        }
+      })
+    );
+    return Math.max(...parts);
+  }
+
   // S338: Get federated memory managers for cross-repo search
   // S463 (#15): carry the source realm so results can be labeled
   private async getFederatedManagers(): Promise<Array<{ manager: MemoryManager; realm: string }>> {
@@ -110,9 +133,17 @@ class GordoLedgerServer {
         // Check if index exists
         try {
           await fs.access(fedConfig.indexPath);
-          const fedManager = new MemoryManager(fedConfig);
-          await fedManager.initialize();
-          managers.push({ manager: fedManager, realm: path.basename(resolvedPath) });
+          const stamp = await this.indexStamp(fedConfig.indexPath);
+          const cached = this.federatedCache.get(resolvedPath);
+          if (cached && cached.stamp === stamp) {
+            managers.push({ manager: cached.manager, realm: cached.realm });
+          } else {
+            const fedManager = new MemoryManager(fedConfig);
+            await fedManager.initialize();
+            const realm = path.basename(resolvedPath);
+            this.federatedCache.set(resolvedPath, { manager: fedManager, realm, stamp });
+            managers.push({ manager: fedManager, realm });
+          }
         } catch {
           // Index doesn't exist, skip
         }

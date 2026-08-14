@@ -26,6 +26,33 @@ const MODEL_CONFIG: Record<string, { maxChars: number, dims: number }> = {
 
 const DEFAULT_CONFIG = { maxChars: 1000, dims: 1024 };
 
+// S162 workshop: process-wide embedding cache, shared across provider
+// instances. Federated search builds one MemoryManager per spoke and each
+// embedded the SAME query string independently — 12 identical Ollama round
+// trips for one hub search, which was the bulk of a 22s federated query (index
+// loading was the smaller half). Same model + same text is deterministic, so a
+// hit is exact, not an approximation. Bounded so a large index run can't grow
+// it without limit.
+const EMBED_CACHE_MAX = 128;
+const embedCache = new Map<string, number[]>();
+
+function cacheGet(key: string): number[] | undefined {
+  const hit = embedCache.get(key);
+  if (!hit) return undefined;
+  // Refresh recency: delete + re-set moves it to the end of the insertion order.
+  embedCache.delete(key);
+  embedCache.set(key, hit);
+  return hit.slice();
+}
+
+function cacheSet(key: string, vec: number[]): void {
+  if (embedCache.size >= EMBED_CACHE_MAX) {
+    const oldest = embedCache.keys().next().value;
+    if (oldest !== undefined) embedCache.delete(oldest);
+  }
+  embedCache.set(key, vec.slice());
+}
+
 class OllamaEmbeddingProvider implements EmbeddingProvider {
   private config: { maxChars: number, dims: number };
   private headChars: number;
@@ -52,6 +79,9 @@ class OllamaEmbeddingProvider implements EmbeddingProvider {
   async generateEmbedding(text: string): Promise<number[]> {
     try {
       const truncated = this.truncateText(text);
+      const cacheKey = `ollama::${this.model}::${truncated}`;
+      const cached = cacheGet(cacheKey);
+      if (cached) return cached;
       const response = await fetch(`${this.baseUrl}/api/embed`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -72,6 +102,7 @@ class OllamaEmbeddingProvider implements EmbeddingProvider {
       if (!data.embeddings || data.embeddings.length === 0) {
         return new Array(this.config.dims).fill(0);
       }
+      cacheSet(cacheKey, data.embeddings[0]);
       return data.embeddings[0];
     } catch (error) {
       throw new Error(`Failed to generate Ollama embedding: ${error instanceof Error ? error.message : String(error)}`);
