@@ -3,7 +3,13 @@
 #
 # "Fully wired" is defined as ALL of:
 #   1. config.json with memory.semantic block (enabled, ollama/mxbai)
-#   2. .gordo-memory/ index built and populated
+#   2. .gordo-memory/ index built and populated, with ALL FIVE LAYERS:
+#      sessions + issues + commits + docs (+ code with --code). Until S163 this
+#      step built docs-only and never called sync-issue-commit-layers.sh, so
+#      every spoke wired by this script was missing its issue and commit
+#      layers. That is where a repo's REASONING lives — video had 323 commits
+#      of it invisible to hub search, and adding them moved federated
+#      realm-recall@8 from 75% to 85% on that one spoke alone.
 #   3. .gordo-memory/ gitignored
 #   4. post-commit auto-reindex hook (symlink to canonical script)
 #   5. registered in the hub's projects/linked.conf  (→ BOS spoke stats)
@@ -18,6 +24,7 @@
 #   --hub    hub repo for registration+federation (default ~/jk-gordo-workshop)
 #   --code   also index source code (indexCode: true), default docs-only
 #   --query  smoke-test search string (default: repo name)
+#   --gh     identity-partition gh wrapper for the issue layer (default gh-gordo)
 #
 # The script never commits — it prints the exact follow-up commits needed.
 # Created S127 workshop, 2026-07-21.
@@ -34,12 +41,16 @@ SPOKE=""
 HUB="$HOME/jk-gordo-workshop"
 INDEX_CODE=false
 QUERY=""
+# Identity partition: the caller names their gh wrapper, this script never picks.
+GH_BIN="${GH_BIN:-gh-gordo}"
+SYNC_LAYERS="$HOME/gordo-ledger/scripts/sync-issue-commit-layers.sh"
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --hub)   HUB="$2"; shift 2 ;;
     --code)  INDEX_CODE=true; shift ;;
     --query) QUERY="$2"; shift 2 ;;
+    --gh)    GH_BIN="$2"; shift 2 ;;
     *)       SPOKE="$1"; shift ;;
   esac
 done
@@ -88,8 +99,19 @@ else
   echo "✓ already ignored"
 fi
 
-step "3/7 build index"
+step "3/7 build index (all five layers)"
 ( cd "$SPOKE" && $LEDGER_CLI index ) || fail "index failed"
+
+# Sessions/docs/code come from the index above; issues and commits do not —
+# they are parsed from synced markdown under github-issues/ and git-commits/,
+# which nothing creates unless this runs. It ends with its own --full reindex
+# (incremental is blind to those dirs, gordo-ledger#17).
+if [ -x "$SYNC_LAYERS" ] || [ -f "$SYNC_LAYERS" ]; then
+  GH_BIN="$GH_BIN" bash "$SYNC_LAYERS" "$SPOKE" \
+    || echo "⚠ issue/commit layer sync failed — spoke is docs-only, rerun: GH_BIN=$GH_BIN $SYNC_LAYERS $SPOKE"
+else
+  echo "⚠ $SYNC_LAYERS not found — spoke will be docs-only"
+fi
 
 step "4/7 post-commit hook"
 HOOK="$SPOKE/.git/hooks/post-commit"

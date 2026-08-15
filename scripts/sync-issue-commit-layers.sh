@@ -37,6 +37,18 @@ command -v jq >/dev/null || { echo "✗ jq required"; exit 1; }
 
 REPO="$($GIT remote get-url origin 2>/dev/null | sed 's/.*github.com[:\/]//; s/\.git$//')"
 
+# The header has said "keep both dirs gitignored" since S139 and left it to the
+# operator. Running this across 19 spokes (S163) left 19 repos with two
+# untracked directories apiece — hundreds of regenerable commit exports, one
+# `git add -A` away from being committed. An instruction that every caller must
+# remember is a step the script should just take. wire-spoke.sh already does
+# exactly this for .gordo-memory/.
+for D in github-issues git-commits; do
+  grep -qxF "$D/" .gitignore 2>/dev/null && continue
+  printf '\n# gordo-ledger issue/commit layer (regenerable: sync-issue-commit-layers.sh)\n%s/\n' "$D" >> .gitignore
+  echo "✓ gitignored $D/"
+done
+
 echo "── Issues${REPO:+ from $REPO}"
 if [ -n "$REPO" ]; then
   mkdir -p github-issues
