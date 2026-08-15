@@ -35,7 +35,25 @@ cd "$SPOKE"
 $GIT rev-parse --git-dir >/dev/null 2>&1 || { echo "✗ not a git repo: $SPOKE"; exit 1; }
 command -v jq >/dev/null || { echo "✗ jq required"; exit 1; }
 
-REPO="$($GIT remote get-url origin 2>/dev/null | sed 's/.*github.com[:\/]//; s/\.git$//')"
+# Two failures this line used to cause, both found by running it across 19
+# spokes (workshop S163), and both silent:
+#
+#   NO REMOTE AT ALL. Under `set -euo pipefail` a failing `git remote get-url`
+#   fails the whole pipeline, so the script exited here — before the gitignore
+#   step, before commits, with no output. plotkin (644 docs, no remote yet) got
+#   nothing and the log showed nothing to explain it. A local-only repo still
+#   has commits worth indexing.
+#
+#   SSH HOST ALIASES. The old pattern only stripped `github.com`, but the
+#   identity partition gives repos remotes like
+#   `git@github-gordo:jkraybill/dashcord-tools.git`. That left REPO holding the
+#   entire URL, which `gh --repo` rejects — so dashcord-tools, dashcord-docs
+#   and jkbox-kodi lost their commit layers to a hostname. Match any host.
+REPO=""
+if _url="$($GIT remote get-url origin 2>/dev/null)"; then
+  REPO="$(printf '%s' "$_url" |
+    sed -E 's#^(git\+)?(ssh://)?(git@|https://|http://)?[^/:]+[:/]##; s#\.git$##')"
+fi
 
 # The header has said "keep both dirs gitignored" since S139 and left it to the
 # operator. Running this across 19 spokes (S163) left 19 repos with two
@@ -50,10 +68,26 @@ for D in github-issues git-commits; do
 done
 
 echo "── Issues${REPO:+ from $REPO}"
+# Fetch FIRST, into a variable, so a failure here cannot take the commit layer
+# with it. Under `set -e` the old inline pipeline aborted the whole script when
+# `gh issue list` failed — and it fails routinely, for repos with issues
+# disabled. jk-fenlight (workshop S163) has issues off, so it got neither
+# layer: 90 commits of history dropped because of a setting on a feature it
+# does not use. Issues are the optional half; commits are the half every git
+# repo has.
+ISSUE_JSON=""
 if [ -n "$REPO" ]; then
+  if ISSUE_JSON="$("$GH_BIN" issue list --repo "$REPO" --state all --limit 1000 \
+      --json number,title,body,state,labels,comments,createdAt,updatedAt,url 2>&1)"; then
+    :
+  else
+    echo "⚠ no issue layer: ${ISSUE_JSON:-issue list failed} — continuing to commits"
+    ISSUE_JSON=""
+  fi
+fi
+if [ -n "$ISSUE_JSON" ]; then
   mkdir -p github-issues
-  "$GH_BIN" issue list --repo "$REPO" --state all --limit 1000 \
-    --json number,title,body,state,labels,comments,createdAt,updatedAt,url |
+  printf '%s' "$ISSUE_JSON" |
   jq -c '.[]' | while read -r issue; do
     N="$(jq -r '.number' <<<"$issue")"
     jq -r '
