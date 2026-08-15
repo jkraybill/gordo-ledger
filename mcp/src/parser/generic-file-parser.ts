@@ -133,10 +133,25 @@ function matchesPatterns(
 
   const relativePath = path.relative(rootPath, filePath);
 
+  // `dot: true` or `**` never descends into a dot-directory, and the effect is
+  // silent and inverted: a repo with NO indexPatterns indexes everything
+  // (this function returns early), while a repo that configures patterns
+  // quietly loses all of `.claude/`. jkbox's four skill files were invisible
+  // for that reason while the hub's fifteen were indexed — same glob, opposite
+  // outcome, decided by whether the config had an indexPatterns block at all
+  // (workshop S163). Skills are executable policy; not being able to recall
+  // them is the worst version of this.
+  //
+  // Applied to the EXCLUDE loop too, deliberately. An exclude that cannot
+  // match dot-paths is an exclude that does not do its job — `.git/**` in a
+  // config's exclude list was matching nothing, and only IGNORED_DIRS at the
+  // walk level was keeping .git out.
+  const MM = { dot: true };
+
   // Check exclude patterns first (higher priority)
   if (config.indexPatterns.exclude) {
     for (const pattern of config.indexPatterns.exclude) {
-      if (minimatch(relativePath, pattern)) {
+      if (minimatch(relativePath, pattern, MM)) {
         return false; // Excluded
       }
     }
@@ -145,7 +160,7 @@ function matchesPatterns(
   // Check include patterns
   if (config.indexPatterns.include && config.indexPatterns.include.length > 0) {
     for (const pattern of config.indexPatterns.include) {
-      if (minimatch(relativePath, pattern)) {
+      if (minimatch(relativePath, pattern, MM)) {
         return true; // Explicitly included
       }
     }
