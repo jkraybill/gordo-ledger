@@ -151,6 +151,34 @@ step "7/7 verify"
 DOCS=$( (cd "$SPOKE" && $LEDGER_CLI stats 2>/dev/null) | grep -oE 'Total indexed: [0-9]+' | grep -oE '[0-9]+' || echo 0)
 [ "$DOCS" -gt 0 ] || fail "index has 0 docs — nothing indexable? check indexDocs/indexCode"
 echo "✓ $DOCS docs indexed"
+
+# Verify the LAYERS, not just the total. Until S163 this step checked
+# `docs > 0` and "a search returns hits" — both true of a docs-only spoke, so
+# all 19 workshop spokes passed a verification that could not fail, for months,
+# while missing the layer that holds their reasoning. A check scoped to what
+# the script already does is not a check.
+LAYERS=$(python3 - "$SPOKE" <<'PYEOF'
+import json, sys, collections
+try:
+    d = json.load(open(sys.argv[1] + "/.gordo-memory/metadata.json"))
+    c = collections.Counter()
+    for v in d["documentStore"].values():
+        m = v.get("metadata", {})
+        c[m.get("type") or m.get("contentType") or "?"] += 1
+    print(" ".join(f"{k}:{v}" for k, v in sorted(c.items())))
+except Exception as e:
+    print(f"UNREADABLE {type(e).__name__}")
+PYEOF
+)
+echo "  layers: $LAYERS"
+GITN=$($GIT -C "$SPOKE" rev-list --count HEAD 2>/dev/null || echo 0)
+case "$LAYERS" in
+  *commit:*) ;;
+  *) if [ "$GITN" -gt 0 ]; then
+       echo "⚠ NO COMMIT LAYER — $GITN commits of history are not searchable."
+       echo "  fix: GH_BIN=$GH_BIN $SYNC_LAYERS $SPOKE"
+     fi ;;
+esac
 # CLI result lines look like "85% path — preview". Count those lines, NOT the
 # "(docs: N)" trailer — five-layer spokes emit mixed trailers like
 # "(docs: 2 | issue: 1)" which a docs-only grep misreads as zero hits
