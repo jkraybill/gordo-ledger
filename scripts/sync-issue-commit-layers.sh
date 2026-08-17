@@ -61,11 +61,16 @@ fi
 # `git add -A` away from being committed. An instruction that every caller must
 # remember is a step the script should just take. wire-spoke.sh already does
 # exactly this for .gordo-memory/.
+NEED=""
 for D in github-issues git-commits; do
-  grep -qxF "$D/" .gitignore 2>/dev/null && continue
-  printf '\n# gordo-ledger issue/commit layer (regenerable: sync-issue-commit-layers.sh)\n%s/\n' "$D" >> .gitignore
-  echo "✓ gitignored $D/"
+  grep -qxF "$D/" .gitignore 2>/dev/null || NEED="$NEED $D"
 done
+if [ -n "$NEED" ]; then
+  # One comment for both entries. The first version printed the header per
+  # entry, so 17 spokes got the same comment line twice (workshop S163).
+  printf '\n# gordo-ledger issue/commit layer (regenerable: sync-issue-commit-layers.sh)\n' >> .gitignore
+  for D in $NEED; do printf '%s/\n' "$D" >> .gitignore; echo "✓ gitignored $D/"; done
+fi
 
 echo "── Issues${REPO:+ from $REPO}"
 # Fetch FIRST, into a variable, so a failure here cannot take the commit layer
