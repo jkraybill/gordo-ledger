@@ -80,6 +80,7 @@ const LANGUAGE_MAP: Record<string, string> = {
   '.go': 'Go',
   '.rs': 'Rust',
   '.c': 'C', '.cpp': 'C++', '.h': 'C/C++ Header', '.hpp': 'C++ Header',
+  '.cs': 'C#',
   '.rb': 'Ruby',
   '.php': 'PHP',
   '.sh': 'Shell', '.bash': 'Bash',
@@ -104,7 +105,7 @@ function computeHash(content: string): string {
  */
 function extractRawExcerpts(code: string, language: string): string[] {
   // S344: Only extract raw excerpts for actual code languages (not config/data files)
-  const codeLanguages = new Set(['Java', 'TypeScript', 'TypeScript/React', 'JavaScript', 'JavaScript/React', 'Python', 'Go', 'Rust', 'C', 'C++', 'C/C++ Header', 'C++ Header', 'Ruby', 'PHP', 'Shell', 'Bash']);
+  const codeLanguages = new Set(['Java', 'TypeScript', 'TypeScript/React', 'JavaScript', 'JavaScript/React', 'Python', 'Go', 'Rust', 'C', 'C++', 'C/C++ Header', 'C++ Header', 'C#', 'Ruby', 'PHP', 'Shell', 'Bash']);
   if (!codeLanguages.has(language)) {
     return [];  // Skip YAML, JSON, SQL, etc.
   }
@@ -119,6 +120,12 @@ function extractRawExcerpts(code: string, language: string): string[] {
       /^\s*(public|private|protected)?\s*(static)?\s*class\s+\w+/,  // Class declarations
       /^\s*(public|private|protected)?\s*(static)?\s*interface\s+\w+/,  // Interface declarations
       /^\s*(public|private|protected)?\s*(static)?\s*\w+(<[\w,\s]+>)?\s+\w+\s*\([^)]*\)/,  // Method signatures
+    ],
+    'C#': [
+      /^\s*\[[\w.]+(\(|\])/,  // Attributes — [HarmonyPatch], [DefOf], [StaticConstructorOnStartup]
+      /^\s*(public|private|protected|internal)?\s*(static\s+|sealed\s+|abstract\s+|partial\s+)*(class|interface|struct|enum|record)\s+\w+/,  // Type declarations
+      /^\s*(public|private|protected|internal)?\s*(static\s+|virtual\s+|override\s+|async\s+)*[\w<>\[\],\s.?]+\s+\w+\s*\([^)]*\)/,  // Method signatures
+      /^\s*(public|private|protected|internal)?\s*(static\s+|readonly\s+|const\s+)*[\w<>\[\],.?]+\s+\w+\s*(=>|\{\s*get|=|;)/,  // Fields and properties
     ],
     TypeScript: [
       /^\s*(export\s+)?(const|let|var)\s+\w+/,  // Variable declarations

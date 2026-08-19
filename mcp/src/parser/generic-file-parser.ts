@@ -17,7 +17,7 @@ import {
  */
 const TEXT_EXTENSIONS = new Set([
   '.md', '.txt', '.ts', '.js', '.tsx', '.jsx',
-  '.py', '.go', '.rs', '.java', '.c', '.cpp', '.h', '.hpp',
+  '.py', '.go', '.rs', '.java', '.c', '.cpp', '.h', '.hpp', '.cs',
   '.json', '.yaml', '.yml', '.toml', '.ini', '.cfg',
   '.sh', '.bash', '.zsh', '.fish',
   '.html', '.css', '.scss', '.sass', '.less',
@@ -38,7 +38,7 @@ const DOC_EXTENSIONS = new Set([
  */
 const CODE_EXTENSIONS = new Set([
   '.ts', '.js', '.tsx', '.jsx', '.py', '.go', '.rs',
-  '.java', '.c', '.cpp', '.h', '.hpp', '.sh', '.bash',
+  '.java', '.c', '.cpp', '.h', '.hpp', '.cs', '.sh', '.bash',
   '.zsh', '.fish', '.r', '.rb', '.php', '.pl', '.lua',
   '.vim', '.html', '.css', '.scss', '.sass', '.less',
   '.json', '.yaml', '.yml', '.toml', '.xml', '.sql', '.graphql'
