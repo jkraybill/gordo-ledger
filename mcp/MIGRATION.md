@@ -102,22 +102,19 @@ mv GORDO_JOURNAL_LOG.md archive/ 2>/dev/null || true
 ### Step 5: Reindex gordo-ledger
 
 ```bash
-# Full reindex to pick up new session files
-./scripts/sync-ledger.sh --all
-
-# Or manually
-gordo-ledger index --full
+# Full reindex to pick up new session files (from the repo root)
+node ~/gordo-ledger/mcp/dist/cli.js index --full
 ```
 
 ### Step 6: Verify migration
 
 ```bash
 # Check session count
-gordo-ledger stats
+node ~/gordo-ledger/mcp/dist/cli.js stats
 # Should show: totalIndexedDocuments: XX (matching your session count)
 
 # Test search
-gordo-ledger search "your recent topic"
+node ~/gordo-ledger/mcp/dist/cli.js search "your recent topic"
 # Should return relevant sessions
 ```
 
@@ -192,7 +189,7 @@ repos:
     hooks:
       - id: gordo-ledger-index
         name: gordo-ledger index
-        entry: bash -c 'gordo-ledger index --incremental 2>/dev/null || true'
+        entry: bash -c 'node ~/gordo-ledger/mcp/dist/cli.js index --incremental 2>/dev/null || true'
         language: system
         pass_filenames: false
         always_run: true
@@ -211,7 +208,7 @@ mv archive/JOURNAL.md .
 # Change "directory": "sessions" to "file": "JOURNAL.md"
 
 # Reindex
-gordo-ledger index --full
+node ~/gordo-ledger/mcp/dist/cli.js index --full
 ```
 
 ## Troubleshooting
@@ -219,7 +216,7 @@ gordo-ledger index --full
 **"No sessions found" after migration**
 - Verify session files exist: `ls sessions/`
 - Check file format: must have `# Session N:` header
-- Reindex: `gordo-ledger index --full`
+- Reindex: `node ~/gordo-ledger/mcp/dist/cli.js index --full`
 
 **Session count mismatch**
 - Parser looks for `# Session N:` pattern
@@ -229,7 +226,7 @@ gordo-ledger index --full
 **Search returns old JOURNAL.md content**
 - Archive directory should be excluded from indexing
 - Check `config.json` indexPatterns.exclude includes `archive/**`
-- Force reindex: `gordo-ledger index --full`
+- Force reindex: `node ~/gordo-ledger/mcp/dist/cli.js index --full`
 
 ## Example Migration (polymarket project)
 
@@ -240,15 +237,15 @@ gordo-ledger index --full
 $ ls sessions/ | wc -l
 45
 
-$ gordo-ledger stats
+$ node ~/gordo-ledger/mcp/dist/cli.js stats
 {
   "totalIndexedDocuments": 179,  # 45 sessions + issues + commits + docs
-  "indexPath": ".gordo-ledger",
+  "indexPath": ".gordo-memory",
   "provider": "ollama"
 }
 
-$ gordo-ledger search "kelly sizing"
+$ node ~/gordo-ledger/mcp/dist/cli.js search "kelly sizing"
 # Returns: Session_26 (Monte Carlo param optimization)
 ```
 
-<!-- Last reviewed: 2026-07-23 14:50 AEST by Gordo -->
+<!-- Last reviewed: 2026-09-08 by Gordo — replaced a scripts/sync-ledger.sh reference that never existed, the bare `gordo-ledger` command (the bin is gordo-ledger-mcp; the documented CLI is node mcp/dist/cli.js), and an indexPath example that said .gordo-ledger where the default is .gordo-memory -->

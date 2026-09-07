@@ -256,7 +256,9 @@ GH_BIN=gh-gordo ~/gordo-ledger/scripts/sync-issue-commit-layers.sh ~/your-spoke
 Issues are re-exported in full each run (they mutate); commit exports are
 immutable and skipped when present. Pass your identity-partition gh wrapper
 via `GH_BIN` (never hardcoded — partition rule 4). Keep both dirs gitignored:
-they are regenerable artifacts, like the index itself.
+they are regenerable artifacts, like the index itself. The sync script writes those
+ignore lines itself and leaves the `.gitignore` change for you to commit in the
+spoke (verified S468, six spokes).
 
 **Two instrument gotchas, both found wiring the first five-layer spoke
 (mum-book, workshop S139):**
