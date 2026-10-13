@@ -19,7 +19,7 @@ const crypto = require('crypto');
 // Default paths
 const DEFAULT_MEMORY_DIR = path.join(
   process.env.HOME,
-  '.claude/projects/-home-jk-project-gordo-backchannel/memory'
+  '.claude/projects/-home-jk-hub-backchannel/memory'
 );
 const DEFAULT_AUDIT_LOG = path.join(__dirname, '..', 'audit.jsonl');
 

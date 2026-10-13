@@ -25,7 +25,7 @@ const path = require('path');
 
 const MEMORY_DIR = path.join(
   process.env.HOME,
-  '.claude/projects/-home-jk-project-gordo-backchannel/memory'
+  '.claude/projects/-home-jk-hub-backchannel/memory'
 );
 
 class TemporalStore {

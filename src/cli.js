@@ -38,7 +38,7 @@ const SessionConsolidator = require('./controller/consolidation');
 
 const MEMORY_DIR = path.join(
   process.env.HOME,
-  '.claude/projects/-home-jk-project-gordo-backchannel/memory'
+  '.claude/projects/-home-jk-hub-backchannel/memory'
 );
 
 async function main() {

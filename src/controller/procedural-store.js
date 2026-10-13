@@ -24,7 +24,7 @@ const PROCEDURAL_FILE = path.join(__dirname, '../.procedural-store.json');
 const SKILLS_DIR = path.join(__dirname, '../../.claude/skills');
 const MEMORY_DIR = path.join(
   process.env.HOME,
-  '.claude/projects/-home-jk-project-gordo-backchannel/memory'
+  '.claude/projects/-home-jk-hub-backchannel/memory'
 );
 
 class ProceduralStore {

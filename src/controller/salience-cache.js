@@ -274,7 +274,7 @@ if (require.main === module) {
 
   const MEMORY_DIR = path.join(
     process.env.HOME,
-    '.claude/projects/-home-jk-project-gordo-backchannel/memory'
+    '.claude/projects/-home-jk-hub-backchannel/memory'
   );
 
   switch (args[0]) {

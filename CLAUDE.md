@@ -54,7 +54,7 @@ Pluggable vector search backends:
 ## Upstream
 
 - `~/project-gordo/` -- T0 constitutional root
-- `~/project-gordo-backchannel/` -- Meta-layer deliberation (permanent-private)
+- `~/hub-backchannel/` -- Meta-layer deliberation (permanent-private)
 
 ---
 

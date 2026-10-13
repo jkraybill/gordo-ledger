@@ -20,7 +20,7 @@ const Embedder = require('../indexer/embedder');
 // Federation: Umbrella project realms
 const UMBRELLA_REALMS = {
   'backchannel': {
-    path: path.join(process.env.HOME, 'project-gordo-backchannel'),
+    path: path.join(process.env.HOME, 'hub-backchannel'),
     tier: 'meta',
     description: 'Private deliberation space',
   },
@@ -53,7 +53,7 @@ const UMBRELLA_REALMS = {
 
 class ArchivalStoreV2 {
   constructor(options = {}) {
-    this.projectPath = options.projectPath || path.join(process.env.HOME, 'project-gordo-backchannel');
+    this.projectPath = options.projectPath || path.join(process.env.HOME, 'hub-backchannel');
     this.realm = options.realm || 'backchannel';
     this.indexPath = path.join(this.projectPath, '.ledger-index');
     this.vectorIndex = null;
@@ -194,7 +194,7 @@ class ArchivalStoreV2 {
     try {
       const memoryDir = path.join(
         process.env.HOME,
-        '.claude/projects/-home-jk-project-gordo-backchannel/memory'
+        '.claude/projects/-home-jk-hub-backchannel/memory'
       );
       const files = await fs.readdir(memoryDir);
 
