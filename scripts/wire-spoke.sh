@@ -21,7 +21,7 @@
 # Usage:
 #   wire-spoke.sh <spoke-path> [--hub <hub-path>] [--code] [--query "test query"]
 #
-#   --hub    hub repo for registration+federation (default ~/jk-gordo-workshop)
+#   --hub    hub repo for registration+federation (default ~/hub-workshop)
 #   --code   also index source code (indexCode: true), default docs-only
 #   --query  smoke-test search string (default: repo name)
 #   --gh     identity-partition gh wrapper for the issue layer (default gh-gordo)
@@ -38,7 +38,7 @@ HOOK_SRC="$HOME/gordo-home/tools/post-commit-reindex.sh"
 GIT=/usr/bin/git
 
 SPOKE=""
-HUB="$HOME/jk-gordo-workshop"
+HUB="$HOME/hub-workshop"
 INDEX_CODE=false
 QUERY=""
 # Identity partition: the caller names their gh wrapper, this script never picks.

@@ -8,7 +8,7 @@
  *
  * It was also the entire cost of a federated query. Reranking is one DeepInfra
  * round trip, so per-realm reranking meant one round trip per realm, serialized.
- * Measured on jk-gordo-workshop with 19 federated spokes, 12 queries: 41s mean,
+ * Measured on hub-workshop with 19 federated spokes, 12 queries: 41s mean,
  * 317s worst. Pooled: ~2.5s steady state.
  *
  * Both entry points (the MCP server and the CLI) had their own copy of the
